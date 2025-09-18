@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import RoleBasedHeader from '../../../components/ui/RoleBasedHeader';
 import WelcomeBanner from '../../../components/welcome/WelcomeBanner';
@@ -26,11 +26,14 @@ import { useAuth } from '../../../contexts/AuthContext.jsx';
 
 const OwnerDashboard = () => {
   const location = useLocation();
-  const { getOrganizationId } = useAuth();
+  const { user: _user, getOrganizationId } = useAuth();
 
   // Use centralized user profile hook
   const {
+    userProfile: _userProfile,
     currentOrganization: hookCurrentOrganization,
+    availableOrganizations: _availableOrganizations,
+    loading: _profileLoading,
   } = useUserProfile();
 
   const [searchValue, setSearchValue] = useState('');
@@ -223,7 +226,7 @@ const OwnerDashboard = () => {
       } finally {
         setLoading(false);
       }
-    }, [location.state, currentUser, organizations.length]);
+    }, [location.state, currentUser, organizations.length, getCurrentOrganizationId]);
 
   useEffect(() => {
     loadDashboardData();

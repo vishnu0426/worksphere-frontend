@@ -193,7 +193,7 @@ const RegistrationForm = () => {
       console.log('Registration successful:', result.data);
 
       // Navigate to role-based dashboard since user is now logged in
-      navigate('/OwnerDashboard', {
+      navigate('/role-based-dashboard', {
         state: {
           message: `Welcome to ${formData.organizationName}! You are now the organization owner. A welcome email has been sent to ${formData.email}.`,
           type: 'success',

@@ -33,8 +33,7 @@ const RoleBasedDashboard = () => {
     loading: profileLoading,
   } = useUserProfile();
 
-  // Initialize userRole as null to ensure proper loading state
-  const [userRole, setUserRole] = useState(null);
+  const [userRole, setUserRole] = useState('member'); // Default role
   const [searchValue, setSearchValue] = useState('');
   const [filterValue, setFilterValue] = useState('all');
   const [dashboardData, setDashboardData] = useState(null);
@@ -60,7 +59,7 @@ const RoleBasedDashboard = () => {
 
   // Helper to get current organization ID
   const getCurrentOrganizationId = () => {
-    return organizations?.[0]?.id || hookCurrentOrganization?.id;
+    return organizations?.[0]?.id || currentOrganization?.id;
   };
 
   // Load dashboard data from backend
@@ -68,9 +67,6 @@ const RoleBasedDashboard = () => {
     const loadDashboardData = async () => {
       try {
         setLoading(true);
-        setError(null); // Clear any previous errors
-
-        console.log('Starting dashboard data load...');
 
         // Check for welcome message from navigation state
         if (location.state?.message && location.state?.type === 'success') {
@@ -80,184 +76,101 @@ const RoleBasedDashboard = () => {
           window.history.replaceState({}, document.title);
         }
 
-        // Get current user and role with enhanced error handling
-        console.log('Fetching current user...');
+        // Get current user and role
         const userResult = await authService.getCurrentUser();
-        console.log('User result:', userResult);
-
-        if (!userResult || !userResult.data || !userResult.data.user) {
-          console.error('Invalid user result structure:', userResult);
-          throw new Error('Failed to retrieve user information. Please log in again.');
+        if (userResult.data.user) {
+          setCurrentUser(userResult.data.user);
+          setUserRole(userResult.data.user.role);
+          setOrganizations(userResult.data.organizations || []);
+        } else {
+          // If no user, show error instead of fallback
+          console.error('No user data available');
+          setError('Unable to load user data. Please log in again.');
+          return;
         }
 
-        const userData = userResult.data.user;
-        const organizationsData = userResult.data.organizations || [];
-
-        console.log('User data:', userData);
-        console.log('Organizations data:', organizationsData);
-
-        // Validate required user fields
-        if (!userData.role) {
-          console.error('User role is missing:', userData);
-          throw new Error('User role information is missing. Please contact support.');
+        // Get dashboard stats
+        const statsResult = await authService.getDashboardStats();
+        if (statsResult.data) {
+          setDashboardData(statsResult.data);
         }
 
-        if (!userData.email) {
-          console.error('User email is missing:', userData);
-          throw new Error('User email information is missing. Please contact support.');
-        }
-
-        // Set user data
-        setCurrentUser(userData);
-        
-        // Normalize role to lowercase for consistency
-        const normalizedRole = userData.role.toLowerCase();
-        console.log('Setting user role to:', normalizedRole);
-        setUserRole(normalizedRole);
-        
-        setOrganizations(organizationsData);
-
-        // Validate organization data for members
-        if (organizationsData.length === 0 && normalizedRole !== 'owner') {
-          console.warn('No organizations found for non-owner user');
-          // For members, this might be expected if they haven't been added to an org yet
-          if (normalizedRole === 'member') {
-            setWelcomeMessage('Welcome! You haven\'t been added to any organizations yet. Please contact your administrator.');
-            setShowWelcome(true);
-          }
-        }
-
-        // Get dashboard stats with error handling
-        try {
-          console.log('Fetching dashboard stats...');
-          const statsResult = await authService.getDashboardStats();
-          console.log('Dashboard stats result:', statsResult);
-          
-          if (statsResult && statsResult.data) {
-            setDashboardData(statsResult.data);
-          } else {
-            console.warn('No dashboard stats available');
-            // Set default dashboard data
-            setDashboardData({
-              total_organizations: organizationsData.length,
-              total_projects: 0,
-              total_members: 1,
-              recent_activity: []
-            });
-          }
-        } catch (statsError) {
-          console.error('Failed to load dashboard stats:', statsError);
-          // Set default dashboard data
-          setDashboardData({
-            total_organizations: organizationsData.length,
-            total_projects: 0,
-            total_members: 1,
-            recent_activity: []
-          });
-        }
-
-        // Get projects, team members, and notifications if organization exists
-        const organizationId = organizationsData?.[0]?.id;
-        console.log('Organization ID for data loading:', organizationId);
-
+        // Get projects using organization from user data
+        const organizationId = userResult.data?.organizations?.[0]?.id;
         if (organizationId) {
-          // Load projects with error handling
-          try {
-            console.log('Fetching projects for organization:', organizationId);
-            const projectsResult = await apiService.projects.getAll(organizationId);
-            console.log('Projects result:', projectsResult);
-            setProjects(Array.isArray(projectsResult) ? projectsResult : []);
-          } catch (projectsError) {
-            console.error('Failed to load projects:', projectsError);
-            setProjects([]);
-          }
+          const projectsResult = await apiService.projects.getAll(
+            organizationId
+          );
+          setProjects(projectsResult || []);
 
-          // Load team members with error handling
+          // Get team members
           try {
-            console.log('Fetching team members for organization:', organizationId);
-            const teamMembersResult = await teamService.getTeamMembers(organizationId);
-            console.log('Team members result:', teamMembersResult);
-            setTeamMembers(Array.isArray(teamMembersResult) ? teamMembersResult : []);
+            const teamMembersResult = await teamService.getTeamMembers(
+              organizationId
+            );
+            setTeamMembers(teamMembersResult || []);
           } catch (teamError) {
             console.error('Failed to load team members:', teamError);
-            setTeamMembers([]);
+            setTeamMembers([]); // Clear team members on error
           }
 
-          // Load notifications with enhanced error handling
+          // Get notifications and check for first-time user
           try {
             setNotificationsLoading(true);
-            console.log('Fetching notifications...');
-            
-            const notificationsResult = await notificationService.getNotifications({ limit: 10 });
-            console.log('Notifications result:', notificationsResult);
+            const notificationsResult =
+              await notificationService.getNotifications({ limit: 10 });
 
-            // Handle different response structures
-            let notificationsArray = [];
-            if (notificationsResult && notificationsResult.data && Array.isArray(notificationsResult.data)) {
-              notificationsArray = notificationsResult.data;
+            // Handle the new response structure
+            if (
+              notificationsResult &&
+              notificationsResult.data &&
+              Array.isArray(notificationsResult.data)
+            ) {
+              setNotifications(notificationsResult.data);
             } else if (Array.isArray(notificationsResult)) {
-              notificationsArray = notificationsResult;
+              setNotifications(notificationsResult);
+            } else {
+              setNotifications([]);
             }
 
-            setNotifications(notificationsArray);
+            // Check if this is a first-time user and create welcome notification
+            const isFirstTime = await notificationService.checkFirstTimeUser();
+            if (isFirstTime && userResult.data.organizations?.[0]?.name) {
+              await notificationService.createWelcomeNotification(
+                userResult.data.user.id,
+                userResult.data.organizations[0].name
+              );
 
-            // Check for first-time user and create welcome notification
-            try {
-              const isFirstTime = await notificationService.checkFirstTimeUser();
-              console.log('Is first time user:', isFirstTime);
-              
-              if (isFirstTime && organizationsData?.[0]?.name) {
-                console.log('Creating welcome notification for first-time user');
-                await notificationService.createWelcomeNotification(
-                  userData.id,
-                  organizationsData[0].name
-                );
-
-                // Reload notifications
-                const updatedNotifications = await notificationService.getNotifications({ limit: 10 });
-                let updatedNotificationsArray = [];
-                if (updatedNotifications && updatedNotifications.data && Array.isArray(updatedNotifications.data)) {
-                  updatedNotificationsArray = updatedNotifications.data;
-                } else if (Array.isArray(updatedNotifications)) {
-                  updatedNotificationsArray = updatedNotifications;
-                }
-                setNotifications(updatedNotificationsArray);
+              // Reload notifications to include the welcome notification
+              const updatedNotifications =
+                await notificationService.getNotifications({ limit: 10 });
+              if (
+                updatedNotifications &&
+                updatedNotifications.data &&
+                Array.isArray(updatedNotifications.data)
+              ) {
+                setNotifications(updatedNotifications.data);
+              } else if (Array.isArray(updatedNotifications)) {
+                setNotifications(updatedNotifications);
+              } else {
+                setNotifications([]);
               }
-            } catch (firstTimeError) {
-              console.error('Failed to handle first-time user:', firstTimeError);
             }
           } catch (notificationError) {
             console.error('Failed to load notifications:', notificationError);
-            setNotifications([]);
+            setNotifications([]); // Clear notifications on error
           } finally {
             setNotificationsLoading(false);
           }
-        } else {
-          console.log('No organization ID available, skipping organization-specific data loading');
-          setNotificationsLoading(false);
         }
 
-        console.log('Dashboard data loading completed successfully');
-        
+        setError(null);
       } catch (err) {
-        console.error('Critical error in loadDashboardData:', err);
-        
-        // Set specific error messages based on error type
-        let errorMessage = 'Failed to load dashboard data. ';
-        
-        if (err.message) {
-          errorMessage += err.message;
-        } else if (err.response && err.response.data && err.response.data.message) {
-          errorMessage += err.response.data.message;
-        } else if (err.response && err.response.status === 401) {
-          errorMessage += 'Your session has expired. Please log in again.';
-        } else if (err.response && err.response.status === 403) {
-          errorMessage += 'You don\'t have permission to access this resource.';
-        } else {
-          errorMessage += 'Please refresh the page or contact support.';
-        }
-        
-        setError(errorMessage);
+        console.error('Failed to load dashboard data:', err);
+
+        // Set error state instead of fallback data
+        console.error('Failed to load dashboard data:', err);
+        setError('Failed to load dashboard data. Please refresh the page or contact support.');
       } finally {
         setLoading(false);
       }
@@ -268,8 +181,6 @@ const RoleBasedDashboard = () => {
 
   // Listen for global project updates
   useEffect(() => {
-    if (!userRole) return; // Don't set up listeners until role is loaded
-
     const cleanup = listenForProjectUpdates(async (updateData) => {
       const { action, project, organizationId } = updateData;
 
@@ -287,8 +198,10 @@ const RoleBasedDashboard = () => {
             (organizationId === currentOrgId || !organizationId)
           ) {
             console.log('Refreshing projects due to update:', action, project);
-            const projectsResult = await apiService.projects.getAll(currentOrgId);
-            setProjects(Array.isArray(projectsResult) ? projectsResult : []);
+            const projectsResult = await apiService.projects.getAll(
+              currentOrgId
+            );
+            setProjects(projectsResult || []);
           }
         } catch (error) {
           console.error('Failed to refresh projects:', error);
@@ -297,7 +210,7 @@ const RoleBasedDashboard = () => {
     });
 
     return cleanup;
-  }, [userRole]); // Depend on userRole instead of empty array
+  }, []);
 
   // Project creation handler
   const handleCreateProject = async (projectData) => {
@@ -311,14 +224,17 @@ const RoleBasedDashboard = () => {
       console.log('Organization ID:', organizationId);
 
       // Create via API
-      const newProject = await apiService.projects.create(organizationId, projectData);
+      const newProject = await apiService.projects.create(
+        organizationId,
+        projectData
+      );
       console.log('Project creation response:', newProject);
 
       // Refresh projects list
       console.log('Refreshing projects list...');
       const projectsResult = await apiService.projects.getAll(organizationId);
       console.log('Updated projects list:', projectsResult);
-      setProjects(Array.isArray(projectsResult) ? projectsResult : []);
+      setProjects(projectsResult || []);
 
       // Notify header to refresh projects
       window.dispatchEvent(
@@ -329,7 +245,9 @@ const RoleBasedDashboard = () => {
 
       // Send notification for project creation
       try {
-        const notificationService = (await import('../../utils/notificationService')).default;
+        const notificationService = (
+          await import('../../utils/notificationService')
+        ).default;
         const currentUser = await authService.getCurrentUser();
         if (currentUser.data?.user) {
           await notificationService.notifyProjectCreated(
@@ -338,7 +256,10 @@ const RoleBasedDashboard = () => {
           );
         }
       } catch (notificationError) {
-        console.error('Failed to send project creation notification:', notificationError);
+        console.error(
+          'Failed to send project creation notification:',
+          notificationError
+        );
       }
 
       // Refresh dashboard stats
@@ -378,14 +299,12 @@ const RoleBasedDashboard = () => {
 
       // Extract the configuration data and flatten it for the API
       const configuration = projectData.configuration || {};
-      const organizationId = getCurrentOrganizationId();
-      
       const apiProjectData = {
         name: configuration.name || projectData.name,
         project_type: configuration.project_type || 'general',
         team_size: configuration.team_size || 5,
         team_experience: configuration.team_experience || 'intermediate',
-        organization_id: organizationId,
+        organization_id: projectData.organizationId || organizationId,
       };
 
       console.log('Sending API project data:', apiProjectData);
@@ -414,9 +333,10 @@ const RoleBasedDashboard = () => {
       console.log('AI Project creation response:', result);
 
       // Refresh projects list
+      const organizationId = getCurrentOrganizationId();
       if (organizationId) {
         const projectsResult = await apiService.projects.getAll(organizationId);
-        setProjects(Array.isArray(projectsResult) ? projectsResult : []);
+        setProjects(projectsResult || []);
 
         // Notify header to refresh projects
         window.dispatchEvent(
@@ -436,7 +356,7 @@ const RoleBasedDashboard = () => {
 
       // Show success message
       setWelcomeMessage(
-        `🎉 AI Project "${projectData.name}" created successfully with ${result.data?.tasks_created || 0} tasks!`
+        `🎉 AI Project "${projectData.name}" created successfully with ${result.data.tasks_created} tasks!`
       );
       setShowWelcome(true);
     } catch (error) {
@@ -448,7 +368,10 @@ const RoleBasedDashboard = () => {
   // Organization creation handlers
   const handleCreateOrganization = async (organizationData, logoFile) => {
     try {
-      const result = await apiService.organizations.create(organizationData, logoFile);
+      const result = await apiService.organizations.create(
+        organizationData,
+        logoFile
+      );
 
       if (result.error) {
         throw new Error(result.error);
@@ -456,11 +379,15 @@ const RoleBasedDashboard = () => {
 
       // Show success message
       setWelcomeMessage(
-        result.message || `Organization "${organizationData.name}" created successfully!`
+        result.message ||
+          `Organization "${organizationData.name}" created successfully!`
       );
       setShowWelcome(true);
 
+      // Refresh organizations list if needed
+      // You might want to update the current organization context here
       console.log('Organization created successfully:', result.data);
+
       return result.data;
     } catch (error) {
       console.error('Failed to create organization:', error);
@@ -477,6 +404,7 @@ const RoleBasedDashboard = () => {
   };
 
   const handleManageUsers = () => {
+    // Navigate to team members page
     window.location.href = '/team-members';
   };
 
@@ -544,21 +472,17 @@ const RoleBasedDashboard = () => {
       }
     } catch (error) {
       console.error('Failed to invite members:', error);
+      // You might want to show an error message to the user here
     }
   };
 
-  // Show loading state - wait for userRole to be set
-  if (loading || userRole === null) {
+  // Show loading state
+  if (loading) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 flex items-center justify-center'>
         <div className='text-center'>
           <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4'></div>
           <p className='text-slate-600'>Loading dashboard...</p>
-          {currentUser && (
-            <p className='text-slate-500 text-sm mt-2'>
-              Welcome, {currentUser.firstName || currentUser.email?.split('@')[0] || 'User'}
-            </p>
-          )}
         </div>
       </div>
     );
@@ -568,72 +492,44 @@ const RoleBasedDashboard = () => {
   if (error) {
     return (
       <div className='min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 flex items-center justify-center'>
-        <div className='text-center max-w-md mx-auto px-4'>
+        <div className='text-center'>
           <div className='w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4'>
-            <svg className='w-8 h-8 text-red-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
+            <svg
+              className='w-8 h-8 text-red-600'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+              />
             </svg>
           </div>
-          <p className='text-red-600 text-lg mb-2 font-semibold'>Failed to load dashboard</p>
-          <p className='text-slate-600 text-sm mb-4'>{error}</p>
-          <div className='flex flex-col sm:flex-row gap-3 justify-center'>
-            <button
-              onClick={() => {
-                setError(null);
-                setLoading(true);
-                window.location.reload();
-              }}
-              className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
-            >
-              Try Again
-            </button>
-            <button
-              onClick={() => {
-                // Clear auth and redirect to login
-                authService.logout();
-                window.location.href = '/login';
-              }}
-              className='px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors'
-            >
-              Log Out
-            </button>
-          </div>
+          <p className='text-red-600 text-lg mb-2'>Failed to load dashboard</p>
+          <p className='text-slate-600 text-sm'>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className='mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
   }
 
-  // Filter projects based on search, filter values, and role-based access
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch =
-      project.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-      (project.description || '').toLowerCase().includes(searchValue.toLowerCase());
-    const matchesFilter =
-      filterValue === 'all' ||
-      (project.status || 'active').toLowerCase() === filterValue.toLowerCase();
+  // Real projects data is loaded from API in useEffect
 
-    // Role-based project access control
-    const hasProjectAccess = () => {
-      if (!currentUser?.role) return true;
-
-      const userRoleNormalized = userRole.toLowerCase();
-
-      // Viewers should only see projects they are specifically invited to
-      if (userRoleNormalized === 'viewer') {
-        return project.organization_id === currentUser.organization_id;
-      }
-
-      return true;
-    };
-
-    return matchesSearch && matchesFilter && hasProjectAccess();
-  });
+  // Real activities and tasks data will be loaded from API when available
 
   // Role-based KPI data with real data integration
   const getKPIData = () => {
     const realData = dashboardData || {};
 
-    switch (userRole?.toLowerCase()) {
+    switch (userRole) {
       case 'owner':
         return [
           {
@@ -812,6 +708,37 @@ const RoleBasedDashboard = () => {
     }
   };
 
+  // Filter projects based on search, filter values, and role-based access
+  const filteredProjects = projects.filter((project) => {
+    const matchesSearch =
+      project.name.toLowerCase().includes(searchValue.toLowerCase()) ||
+      (project.description || '')
+        .toLowerCase()
+        .includes(searchValue.toLowerCase());
+    const matchesFilter =
+      filterValue === 'all' ||
+      (project.status || 'active').toLowerCase() === filterValue.toLowerCase();
+
+    // Role-based project access control
+    const hasProjectAccess = () => {
+      if (!currentUser?.role) return true; // Default access if role not set
+
+      const userRole = currentUser.role.toLowerCase();
+
+      // Viewers should only see projects they are specifically invited to
+      if (userRole === 'viewer') {
+        // For now, viewers can see projects from their organization
+        // In a real implementation, this would check project-specific invitations
+        return project.organization_id === currentUser.organization_id;
+      }
+
+      // Members, admins, and owners can see all projects in their organization
+      return true;
+    };
+
+    return matchesSearch && matchesFilter && hasProjectAccess();
+  });
+
   // Get current organization data - use hook data if available, otherwise fallback to local state
   const currentOrganization =
     hookCurrentOrganization ||
@@ -832,8 +759,8 @@ const RoleBasedDashboard = () => {
             '/assets/images/org-logo.png',
         }
       : {
-          name: 'No Organization',
-          domain: currentUser?.email?.split('@')[1] || 'company.com',
+          name: 'Loading...',
+          domain: 'company.com',
           logo: '/assets/images/org-logo.png',
         });
 
@@ -841,12 +768,14 @@ const RoleBasedDashboard = () => {
     <div className='min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20'>
       {/* Role-Based Header */}
       <RoleBasedHeader
-        userRole={userRole?.toLowerCase()}
+        userRole={userRole.toLowerCase()}
         currentUser={
           currentUser
             ? {
                 name:
-                  `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() ||
+                  `${currentUser.firstName || ''} ${
+                    currentUser.lastName || ''
+                  }`.trim() ||
                   currentUser.email?.split('@')[0] ||
                   'User',
                 email: currentUser.email,
@@ -914,7 +843,7 @@ const RoleBasedDashboard = () => {
               <div className='w-2 h-2 bg-green-500 rounded-full animate-pulse'></div>
               <span className='text-sm font-medium text-slate-700'>
                 {currentUser
-                  ? `Welcome, ${currentUser.firstName || currentUser.email?.split('@')[0] || 'User'}!`
+                  ? `Welcome, ${currentUser.firstName}!`
                   : 'Loading...'}
               </span>
             </div>
@@ -940,6 +869,8 @@ const RoleBasedDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Dashboard content - header functionality moved to RoleBasedHeader */}
 
       {/* Main Dashboard Content */}
       <div className='max-w-7xl mx-auto px-6 py-8'>
@@ -972,7 +903,7 @@ const RoleBasedDashboard = () => {
               <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
                 <div>
                   <h2 className='text-2xl font-semibold text-slate-900 tracking-tight'>
-                    {userRole === 'viewer'
+                    {userRole === 'Viewer'
                       ? 'Available Projects'
                       : 'My Projects'}
                   </h2>
@@ -1031,16 +962,10 @@ const RoleBasedDashboard = () => {
                     </svg>
                   </div>
                   <p className='text-slate-600 text-lg'>
-                    {userRole === 'member' 
-                      ? 'You haven\'t been assigned to any projects yet'
-                      : 'No projects match your current filters'
-                    }
+                    No projects match your current filters
                   </p>
                   <p className='text-slate-500 text-sm mt-1'>
-                    {userRole === 'member'
-                      ? 'Contact your team lead or admin to get added to projects'
-                      : 'Try adjusting your search or filter criteria'
-                    }
+                    Try adjusting your search or filter criteria
                   </p>
                 </div>
               )}
@@ -1082,7 +1007,7 @@ const RoleBasedDashboard = () => {
         {process.env.NODE_ENV === 'development' && (
           <div className='mt-8'>
             <div className='flex items-center justify-between mb-4'>
-              <h3 className='text-lg font-semibold text-slate-900'>Development Tools</h3>
+              <h3 className='text-lg font-semibold text-text-primary'>Development Tools</h3>
               <button
                 onClick={() => setShowNotificationTester(!showNotificationTester)}
                 className='px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors'
@@ -1095,7 +1020,6 @@ const RoleBasedDashboard = () => {
         )}
       </div>
 
-      {/* Modals */}
       {/* Create Project Modal */}
       <CreateProjectModal
         isOpen={showCreateProject}

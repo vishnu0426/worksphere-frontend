@@ -1,10 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Image from '../../../components/AppImage';
 
 const NotificationPanel = ({ notifications = [], userRole, loading = false }) => {
   const [filter, setFilter] = useState('all');
+
+  // FIX: Ensure notifications is always an array using useMemo
+  const safeNotifications = useMemo(() => {
+    if (Array.isArray(notifications)) {
+      return notifications;
+    }
+    if (notifications && typeof notifications === 'object') {
+      // Handle different response formats
+      if (Array.isArray(notifications.data)) {
+        return notifications.data;
+      }
+      if (Array.isArray(notifications.notifications)) {
+        return notifications.notifications;
+      }
+    }
+    return [];
+  }, [notifications]);
 
   const getNotificationIcon = (type) => {
     const icons = {
@@ -45,15 +62,16 @@ const NotificationPanel = ({ notifications = [], userRole, loading = false }) =>
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
-  const filteredNotifications = notifications.filter(notification => {
+  // FIX: Use safeNotifications instead of notifications for filtering
+  const filteredNotifications = safeNotifications.filter(notification => {
     if (filter === 'all') return true;
     if (filter === 'unread') return !notification.read;
     if (filter === 'high') return notification.priority === 'high';
     return notification.type === filter;
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const highPriorityCount = notifications.filter(n => n.priority === 'high').length;
+  const unreadCount = safeNotifications.filter(n => !n.read).length;
+  const highPriorityCount = safeNotifications.filter(n => n.priority === 'high').length;
 
   const handleMarkAsRead = (notificationId) => {
     console.log(`Marking notification ${notificationId} as read`);
@@ -92,10 +110,10 @@ const NotificationPanel = ({ notifications = [], userRole, loading = false }) =>
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto">
         {[
-          { key: 'all', label: 'All', count: notifications.length },
+          { key: 'all', label: 'All', count: safeNotifications.length },
           { key: 'unread', label: 'Unread', count: unreadCount },
           { key: 'high', label: 'High Priority', count: highPriorityCount },
-          { key: 'task_assigned', label: 'Tasks', count: notifications.filter(n => n.type === 'task_assigned').length }
+          { key: 'task_assigned', label: 'Tasks', count: safeNotifications.filter(n => n.type === 'task_assigned').length }
         ].map((tab) => (
           <button
             key={tab.key}

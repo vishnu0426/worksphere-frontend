@@ -9,19 +9,16 @@ export const getTeamMembers = async (organizationId, filters = {}) => {
   try {
     console.log('Fetching team members for organization:', organizationId);
 
-    // Get both active members and recently accepted invitations
-    const [activeMembers, acceptedInvitations] = await Promise.all([
-      realApiService.organizations.getMembers(organizationId, filters),
-      realApiService.organizations.getAcceptedInvitations(organizationId)
-    ]);
+    // FIX: Use only the existing getMembers method since getAcceptedInvitations doesn't exist
+    // Get members with accepted status filter
+    const activeMembers = await realApiService.organizations.getMembers(
+      organizationId, 
+      { ...filters, status: 'accepted' }
+    );
 
     console.log('Active members:', activeMembers);
-    console.log('Accepted invitations:', acceptedInvitations);
 
-    const allMembers = [
-      ...(activeMembers || []),
-      ...(acceptedInvitations || [])
-    ];
+    const allMembers = activeMembers || [];
 
     if (allMembers && Array.isArray(allMembers)) {
       // Transform the data to match frontend expectations
@@ -153,7 +150,11 @@ export const bulkMemberAction = async (
 export const getPendingInvitations = async (organizationId) => {
   try {
     console.log('Getting pending invitations for organization:', organizationId);
-    const result = await realApiService.organizations.getPendingInvitations(organizationId);
+    // FIX: Use getMembers with pending status since getPendingInvitations doesn't exist
+    const result = await realApiService.organizations.getMembers(
+      organizationId,
+      { status: 'pending' }
+    );
     console.log('Pending invitations:', result);
     return result || [];
   } catch (error) {

@@ -116,7 +116,7 @@ const realApiService = {
       return handle(resp);
     },
     login: async (email, password) => {
-      console.log('🔐 Login attempt:', { email, apiUrl: `${API_BASE_URL}/api/v1/auth/login` });
+      console.log('🔍 Login attempt:', { email, apiUrl: `${API_BASE_URL}/api/v1/auth/login` });
       try {
         const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/auth/login`, {
           method: 'POST',
@@ -249,6 +249,15 @@ const realApiService = {
       );
       const r = await handle(resp);
       return r.data;
+    },
+    // FIX: Add missing getAcceptedInvitations method
+    getAcceptedInvitations: async (organizationId) => {
+      const resp = await fetch(
+        `${API_BASE_URL}/api/v1/organizations/${organizationId}/members${buildQS({ status: 'accepted' })}`,
+        { headers: getAuthHeaders() }
+      );
+      const r = await handle(resp);
+      return r.data || [];
     },
     create: async (data) => {
       const resp = await fetch(`${API_BASE_URL}/api/v1/organizations`, {
@@ -670,7 +679,24 @@ const realApiService = {
         ? `${API_BASE_URL}/api/v1/notifications?${qs}`
         : `${API_BASE_URL}/api/v1/notifications`;
       const resp = await fetch(url, { headers: getAuthHeaders() });
-      return handle(resp);
+      const result = await handle(resp);
+      
+      // FIX: Ensure notifications is always an array
+      if (result && typeof result === 'object') {
+        if (Array.isArray(result)) {
+          return result;
+        }
+        if (Array.isArray(result.data)) {
+          return result.data;
+        }
+        if (Array.isArray(result.notifications)) {
+          return result.notifications;
+        }
+        // If we get an object but no array, return empty array
+        return [];
+      }
+      
+      return [];
     },
     create: async (data) => {
       const resp = await fetch(`${API_BASE_URL}/api/v1/notifications`, {
@@ -714,7 +740,24 @@ const realApiService = {
         ? `${API_BASE_URL}/api/v1/notifications/in-app/user-notifications?${qs}`
         : `${API_BASE_URL}/api/v1/notifications/in-app/user-notifications`;
       const resp = await fetch(url, { headers: getAuthHeaders() });
-      return handle(resp);
+      const result = await handle(resp);
+      
+      // FIX: Ensure notifications is always an array
+      if (result && typeof result === 'object') {
+        if (Array.isArray(result)) {
+          return result;
+        }
+        if (Array.isArray(result.data)) {
+          return result.data;
+        }
+        if (Array.isArray(result.notifications)) {
+          return result.notifications;
+        }
+        // If we get an object but no array, return empty array
+        return [];
+      }
+      
+      return [];
     },
     getUnreadCount: async (organizationId = null) => {
       const params = organizationId ? `?organization_id=${organizationId}` : '';
