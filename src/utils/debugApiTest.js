@@ -1,5 +1,5 @@
 // Debug API Test - Test both card filtering and checklist CORS issues
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.9.119:8000';
 
 export const testCardFiltering = async () => {
   console.log('🔍 Testing card filtering...');

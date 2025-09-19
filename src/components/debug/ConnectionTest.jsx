@@ -214,7 +214,7 @@ const ConnectionTest = () => {
       
       <div className="mt-6 p-4 bg-gray-50 rounded text-sm">
         <p className="font-medium mb-2">Expected Backend URL:</p>
-        <code className="text-blue-600">{process.env.REACT_APP_API_URL || 'http://localhost:8000'}</code>
+        <code className="text-blue-600">{process.env.REACT_APP_API_URL || 'http://192.168.9.119:8000'}</code>
         <p className="mt-2 text-gray-600">
           Make sure the backend server is running on this URL.
         </p>

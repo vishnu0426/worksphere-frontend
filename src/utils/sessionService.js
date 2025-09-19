@@ -1,7 +1,7 @@
 // Session-based authentication service that stores sessions in database
 // This replaces localStorage-based token storage
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.9.119:8000';
 
 class SessionService {
   constructor() {

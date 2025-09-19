@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import RoleBasedHeader from '../../../components/ui/RoleBasedHeader';
 import WelcomeBanner from '../../../components/welcome/WelcomeBanner';
@@ -26,8 +26,7 @@ const AdminDashboard = () => {
   const {
     userProfile,
     currentOrganization: hookCurrentOrganization,
-    availableOrganizations: _availableOrganizations,
-    loading: _profileLoading,
+    loading: profileLoading,
   } = useUserProfile();
 
   const [searchValue, setSearchValue] = useState('');
@@ -50,58 +49,58 @@ const AdminDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
-  // Organization settings for permission checking
-  const [_organizationSettings, _setOrganizationSettings] = useState(null);
-
-  // Helper to get current organization ID
+  // FIX: Memoize getCurrentOrganizationId to prevent infinite loops
   const getCurrentOrganizationId = useCallback(() => {
     return organizations?.[0]?.id || hookCurrentOrganization?.id;
-  }, [organizations, hookCurrentOrganization]);
+  }, [organizations, hookCurrentOrganization?.id]);
 
-  // Helper to get current user role
-  const getCurrentUserRole = () => {
+  // FIX: Memoize organizationId
+  const organizationId = useMemo(() => {
+    return sessionService.getOrganizationId() || getCurrentOrganizationId();
+  }, [getCurrentOrganizationId]);
+
+  // FIX: Memoize user role calculation
+  const getCurrentUserRole = useCallback(() => {
     const currentOrgId = getCurrentOrganizationId();
-    if (!currentOrgId || !userProfile?.organizations) return null;
+    if (!currentOrgId || !userProfile?.organizations) return 'admin';
 
     const currentOrgMembership = userProfile.organizations.find(
       (org) => org.organization_id === currentOrgId
     );
-    return currentOrgMembership?.role || 'admin'; // Default to admin for AdminDashboard
-  };
+    return currentOrgMembership?.role || 'admin';
+  }, [getCurrentOrganizationId, userProfile?.organizations]);
 
-  // Load dashboard data from backend
+  // FIX: Separate effect for welcome message (runs once)
   useEffect(() => {
+    if (location.state?.message && location.state?.type === 'success') {
+      setWelcomeMessage(location.state.message);
+      setShowWelcome(true);
+      // Clear the state to prevent showing on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state?.message, location.state?.type]);
+
+  // FIX: Main data loading effect with proper dependencies
+  useEffect(() => {
+    if (profileLoading) return; // Don't load if profile is still loading
+
     const loadDashboardData = async () => {
       try {
         setLoading(true);
 
-        // Check for welcome message from navigation state
-        if (location.state?.message && location.state?.type === 'success') {
-          setWelcomeMessage(location.state.message);
-          setShowWelcome(true);
-          // Clear the state to prevent showing on refresh
-          window.history.replaceState({}, document.title);
-        }
-
         // Get current user from session service
-        const currentUser = sessionService.getCurrentUser();
-
-        if (currentUser) {
-          setCurrentUser(currentUser);
+        const sessionUser = sessionService.getCurrentUser();
+        if (sessionUser) {
+          setCurrentUser(sessionUser);
 
           // Get user's organizations via API
           try {
             const userResult = await apiService.users.getCurrentUser();
-            console.log('🔍 ADMIN: User API result:', userResult);
+            console.log('ADMIN: User API result:', userResult);
 
             if (userResult?.organizations) {
               setOrganizations(userResult.organizations);
-              console.log(
-                '✅ ADMIN: Organizations loaded:',
-                userResult.organizations
-              );
             } else {
-              console.warn('⚠️ ADMIN: No organizations in API response');
               // Use fallback organization
               setOrganizations([
                 {
@@ -112,8 +111,7 @@ const AdminDashboard = () => {
               ]);
             }
           } catch (error) {
-            console.error('❌ ADMIN: Failed to load organizations:', error);
-            // Use fallback organization
+            console.error('ADMIN: Failed to load organizations:', error);
             setOrganizations([
               {
                 id: sessionService.getOrganizationId() || 'fallback-org',
@@ -122,94 +120,70 @@ const AdminDashboard = () => {
               },
             ]);
           }
-        } else {
-          console.warn('No user data available from session');
-          return; // Don't proceed without user
         }
 
-        // Get projects using organization ID from session service
-        const organizationId = sessionService.getOrganizationId();
-        if (organizationId) {
-          const projectsResult = await apiService.projects.getAll(
-            organizationId
-          );
-          setProjects(projectsResult || []);
-
-          // Get team members
-          try {
-            const teamMembersResult = await teamService.getTeamMembers(
-              organizationId
-            );
-            setTeamMembers(teamMembersResult || []);
-          } catch (teamError) {
-            console.error('Failed to load team members:', teamError);
-            setTeamMembers([]); // Clear team members on error
-          }
-
-          // Get notifications
-          try {
-            setNotificationsLoading(true);
-            const notificationsResult =
-              await notificationService.getNotifications(organizationId);
-            setNotifications(notificationsResult || []);
-          } catch (notificationError) {
-            console.error('Failed to load notifications:', notificationError);
-            setNotifications([]);
-          } finally {
-            setNotificationsLoading(false);
-          }
-
-          // Get dashboard stats
-          try {
-            const statsResult = await apiService.users.getDashboardStats();
-            if (statsResult.data) {
-              setDashboardData(statsResult.data);
-            }
-          } catch (statsError) {
-            console.error('Failed to load dashboard stats:', statsError);
-          }
-        }
+        setError(null);
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
         setError(error.message);
-
-        // Set fallback data on error
-        if (!currentUser) {
-          setCurrentUser({
-            id: 'fallback-user',
-            firstName: 'Admin',
-            lastName: 'User',
-            email: 'admin@example.com',
-            role: 'admin',
-          });
-        }
-
-        if (organizations.length === 0) {
-          setOrganizations([
-            {
-              id: 'fallback-org',
-              name: 'Default Organization',
-              domain: 'example.com',
-            },
-          ]);
-        }
-
-        // Set empty arrays for other data
-        setProjects([]);
-        setTeamMembers([]);
-        setNotifications([]);
-        setNotificationsLoading(false);
       } finally {
         setLoading(false);
       }
     };
 
     loadDashboardData();
-  }, [location.state, currentUser, organizations.length, getCurrentOrganizationId]);
+  }, [profileLoading]); // Only depend on profileLoading
 
-  // Listen for real-time project updates
+  // FIX: Separate effect for organization-specific data loading
   useEffect(() => {
-    const organizationId = getCurrentOrganizationId();
+    if (!organizationId || loading) return;
+
+    const loadOrganizationData = async () => {
+      try {
+        // Get projects
+        const projectsResult = await apiService.projects.getAll(organizationId);
+        setProjects(projectsResult || []);
+
+        // Get team members
+        try {
+          const teamMembersResult = await teamService.getTeamMembers(organizationId);
+          setTeamMembers(teamMembersResult || []);
+        } catch (teamError) {
+          console.error('Failed to load team members:', teamError);
+          setTeamMembers([]);
+        }
+
+        // Get notifications
+        try {
+          setNotificationsLoading(true);
+          const notificationsResult = await notificationService.getNotifications(organizationId);
+          setNotifications(notificationsResult || []);
+        } catch (notificationError) {
+          console.error('Failed to load notifications:', notificationError);
+          setNotifications([]);
+        } finally {
+          setNotificationsLoading(false);
+        }
+
+        // Get dashboard stats
+        try {
+          const statsResult = await apiService.users.getDashboardStats();
+          if (statsResult.data) {
+            setDashboardData(statsResult.data);
+          }
+        } catch (statsError) {
+          console.error('Failed to load dashboard stats:', statsError);
+        }
+      } catch (error) {
+        console.error('Failed to load organization data:', error);
+      }
+    };
+
+    loadOrganizationData();
+  }, [organizationId, loading]); // Only when organizationId changes and not loading
+
+  // FIX: Real-time project updates with stable dependency
+  useEffect(() => {
     if (!organizationId) return;
 
     const unsubscribe = listenForProjectUpdates((updateData) => {
@@ -222,11 +196,8 @@ const AdminDashboard = () => {
         setProjects((prevProjects) => [...prevProjects, project]);
       } else if (action === 'updated' && project) {
         setProjects((prevProjects) => {
-          const existingIndex = prevProjects.findIndex(
-            (p) => p.id === project.id
-          );
+          const existingIndex = prevProjects.findIndex((p) => p.id === project.id);
           if (existingIndex >= 0) {
-            // Update existing project
             const newProjects = [...prevProjects];
             newProjects[existingIndex] = project;
             return newProjects;
@@ -234,35 +205,29 @@ const AdminDashboard = () => {
           return prevProjects;
         });
       } else if (action === 'deleted' && project) {
-        setProjects((prevProjects) =>
-          prevProjects.filter((p) => p.id !== project.id)
-        );
+        setProjects((prevProjects) => prevProjects.filter((p) => p.id !== project.id));
       } else if (action === 'refresh') {
-        // Projects will be refreshed automatically by the event system
-        console.log('🔄 Project refresh requested');
+        console.log('Project refresh requested');
       }
     });
 
     return unsubscribe;
-  }, [organizations, getCurrentOrganizationId]);
+  }, [organizationId]); // Only when organizationId changes
 
-  // Show debug panel in development mode
+  // FIX: Debug panel effect with proper dependency
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      const organizationId = getCurrentOrganizationId();
-      if (organizationId) {
-        // Add a small delay to ensure the page is loaded
-        setTimeout(() => {
-          showOrganizationSettingsDebug(organizationId);
-        }, 1000);
-      }
+    if (process.env.NODE_ENV === 'development' && organizationId) {
+      const timer = setTimeout(() => {
+        showOrganizationSettingsDebug(organizationId);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
     }
-  }, [organizations, getCurrentOrganizationId]);
+  }, [organizationId]);
 
-  // Admin-specific KPI data
-  const getAdminKPIData = () => {
+  // FIX: Memoize KPI data calculation
+  const adminKPIData = useMemo(() => {
     const realData = dashboardData || {};
-
     return [
       {
         title: 'Active Projects',
@@ -297,35 +262,24 @@ const AdminDashboard = () => {
         color: 'warning',
       },
     ];
-  };
+  }, [dashboardData]);
 
-  // Filter projects based on search and filter criteria
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch = project.name
-      .toLowerCase()
-      .includes(searchValue.toLowerCase());
-    const matchesFilter =
-      filterValue === 'all' || project.status === filterValue;
-    return matchesSearch && matchesFilter;
-  });
+  // FIX: Memoize filtered projects
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const matchesSearch = project.name.toLowerCase().includes(searchValue.toLowerCase());
+      const matchesFilter = filterValue === 'all' || project.status === filterValue;
+      return matchesSearch && matchesFilter;
+    });
+  }, [projects, searchValue, filterValue]);
 
-  // Event handlers
-  const handleOpenCreateProject = () => {
-    setShowCreateProject(true);
-  };
-
-  const handleCloseCreateProject = () => {
-    setShowCreateProject(false);
-  };
-
-  const handleCreateProject = async (projectData) => {
+  // FIX: Stable event handlers with useCallback
+  const handleCreateProject = useCallback(async (projectData) => {
     try {
-      const organizationId = getCurrentOrganizationId();
       if (!organizationId) {
         throw new Error('No organization found');
       }
 
-      // Debug: Log current user role and organization
       const currentUserRole = getCurrentUserRole();
       console.log('Creating project with:', {
         organizationId,
@@ -333,16 +287,10 @@ const AdminDashboard = () => {
         projectData,
       });
 
-      // Call the API with correct parameter order: (organizationId, projectData)
-      const result = await apiService.projects.create(
-        organizationId,
-        projectData
-      );
-
+      const result = await apiService.projects.create(organizationId, projectData);
       console.log('Project creation result:', result);
 
       if (result) {
-        // Add the new project to the current projects list immediately
         const newProject = {
           id: result.id,
           name: result.name || projectData.name,
@@ -355,69 +303,53 @@ const AdminDashboard = () => {
           created_by: result.created_by,
         };
 
-        // Update projects list immediately
         setProjects((prevProjects) => [...(prevProjects || []), newProject]);
 
-        // Also refresh from server to ensure consistency
+        // Refresh from server
         try {
-          const projectsResult = await apiService.projects.getAll(
-            organizationId
-          );
+          const projectsResult = await apiService.projects.getAll(organizationId);
           if (projectsResult && Array.isArray(projectsResult)) {
             setProjects(projectsResult);
           }
         } catch (refreshError) {
           console.warn('Failed to refresh projects list:', refreshError);
-          // Keep the locally updated list if refresh fails
         }
 
-        // Show success message
-        console.log('✅ Project created successfully:', newProject.name);
-
-        // Close the create project modal if it's open
         setShowCreateProject(false);
+        console.log('Project created successfully:', newProject.name);
       }
     } catch (error) {
       console.error('Failed to create project:', error);
-
-      // Enhanced error handling for permission issues
-      if (
-        error.message.includes('Permission denied') ||
-        error.message.includes('create_project')
-      ) {
-        const currentUserRole = getCurrentUserRole();
-        console.error('Permission Details:', {
-          userRole: currentUserRole,
-          organizationId: getCurrentOrganizationId(),
-          errorMessage: error.message,
-        });
-
-        // Provide user-friendly error message - only owners can create projects
-        throw new Error(
-          'Only organization owners can create projects. Please contact your organization owner to create new projects.'
-        );
+      
+      if (error.message.includes('Permission denied') || error.message.includes('create_project')) {
+        throw new Error('Only organization owners can create projects. Please contact your organization owner to create new projects.');
       }
-
+      
       throw error;
     }
-  };
+  }, [organizationId, getCurrentUserRole]);
 
-  const handleManageUsers = () => {
-    // Navigate to team members page
+  const handleOpenCreateProject = useCallback(() => {
+    setShowCreateProject(true);
+  }, []);
+
+  const handleCloseCreateProject = useCallback(() => {
+    setShowCreateProject(false);
+  }, []);
+
+  const handleManageUsers = useCallback(() => {
     window.location.href = '/team-members';
-  };
+  }, []);
 
-  const handleInviteMembers = () => {
+  const handleInviteMembers = useCallback(() => {
     setShowInviteMember(true);
-  };
+  }, []);
 
-  const handleCloseInviteMember = () => {
+  const handleCloseInviteMember = useCallback(() => {
     setShowInviteMember(false);
-  };
+  }, []);
 
-  // Handler for Admin (bulk invite)
-  const handleAdminInviteSubmit = async (inviteData) => {
-    const organizationId = getCurrentOrganizationId();
+  const handleAdminInviteSubmit = useCallback(async (inviteData) => {
     if (!organizationId) {
       console.error('No organization selected');
       return;
@@ -426,7 +358,6 @@ const AdminDashboard = () => {
     try {
       console.log('Admin inviting members:', inviteData);
 
-      // Send invitations through API
       for (const email of inviteData.emails) {
         await teamService.inviteTeamMember(organizationId, {
           email,
@@ -437,28 +368,15 @@ const AdminDashboard = () => {
 
       console.log('Invitations sent successfully');
 
-      // Refresh dashboard stats to show updated member count
+      // Refresh dashboard stats
       const statsResult = await apiService.users.getDashboardStats();
       if (statsResult.data) {
         setDashboardData(statsResult.data);
       }
     } catch (error) {
       console.error('Failed to invite members:', error);
-      // You might want to show an error message to the user here
     }
-  };
-
-  // Show loading state
-  // if (loading) {
-  //   return (
-  //     <div className='min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center'>
-  //       <div className='text-center'>
-  //         <div className='animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4'></div>
-  //         <p className='text-slate-600'>Loading your admin dashboard...</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  }, [organizationId]);
 
   // Show error state
   if (error) {
@@ -495,37 +413,18 @@ const AdminDashboard = () => {
         <div className='bg-green-50 border-l-4 border-green-400 p-4 mb-6 mx-6'>
           <div className='flex'>
             <div className='flex-shrink-0'>
-              <svg
-                className='h-5 w-5 text-green-400'
-                viewBox='0 0 20 20'
-                fill='currentColor'
-              >
-                <path
-                  fillRule='evenodd'
-                  d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z'
-                  clipRule='evenodd'
-                />
+              <svg className='h-5 w-5 text-green-400' viewBox='0 0 20 20' fill='currentColor'>
+                <path fillRule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clipRule='evenodd' />
               </svg>
             </div>
             <div className='ml-3'>
               <p className='text-sm text-green-700'>{welcomeMessage}</p>
             </div>
             <div className='ml-auto pl-3'>
-              <button
-                onClick={() => setShowWelcome(false)}
-                className='text-green-400 hover:text-green-600'
-              >
+              <button onClick={() => setShowWelcome(false)} className='text-green-400 hover:text-green-600'>
                 <span className='sr-only'>Dismiss</span>
-                <svg
-                  className='h-5 w-5'
-                  viewBox='0 0 20 20'
-                  fill='currentColor'
-                >
-                  <path
-                    fillRule='evenodd'
-                    d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
-                    clipRule='evenodd'
-                  />
+                <svg className='h-5 w-5' viewBox='0 0 20 20' fill='currentColor'>
+                  <path fillRule='evenodd' d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z' clipRule='evenodd' />
                 </svg>
               </button>
             </div>
@@ -561,7 +460,7 @@ const AdminDashboard = () => {
       <div className='max-w-7xl mx-auto px-6 py-8'>
         {/* KPI Cards */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-          {getAdminKPIData().map((kpi, index) => (
+          {adminKPIData.map((kpi, index) => (
             <KPICard key={index} {...kpi} />
           ))}
         </div>
@@ -570,7 +469,6 @@ const AdminDashboard = () => {
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8'>
           {/* Left Column - Projects */}
           <div className='lg:col-span-2'>
-            {/* Projects Section with enhanced header */}
             <div className='space-y-6'>
               <div className='flex items-center justify-between'>
                 <div>
@@ -586,18 +484,8 @@ const AdminDashboard = () => {
                     onClick={handleOpenCreateProject}
                     className='inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 shadow-sm'
                   >
-                    <svg
-                      className='w-4 h-4 mr-2'
-                      fill='none'
-                      stroke='currentColor'
-                      viewBox='0 0 24 24'
-                    >
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={2}
-                        d='M12 4v16m8-8H4'
-                      />
+                    <svg className='w-4 h-4 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 4v16m8-8H4' />
                     </svg>
                     New Project
                   </button>
@@ -608,52 +496,23 @@ const AdminDashboard = () => {
               <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
                 {filteredProjects.length > 0 ? (
                   filteredProjects.map((project) => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      userRole='admin'
-                    />
+                    <ProjectCard key={project.id} project={project} userRole='admin' />
                   ))
                 ) : (
                   <div className='col-span-2 text-center py-12 bg-white rounded-xl border border-slate-200'>
                     <div className='w-16 h-16 mx-auto mb-4 bg-slate-100 rounded-full flex items-center justify-center'>
-                      <svg
-                        className='w-8 h-8 text-slate-400'
-                        fill='none'
-                        stroke='currentColor'
-                        viewBox='0 0 24 24'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth={2}
-                          d='M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'
-                        />
+                      <svg className='w-8 h-8 text-slate-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' />
                       </svg>
                     </div>
-                    <h3 className='text-lg font-medium text-slate-900 mb-2'>
-                      No projects yet
-                    </h3>
-                    <p className='text-slate-500 mb-6'>
-                      Create your first project to get started with project
-                      management.
-                    </p>
+                    <h3 className='text-lg font-medium text-slate-900 mb-2'>No projects yet</h3>
+                    <p className='text-slate-500 mb-6'>Create your first project to get started with project management.</p>
                     <button
                       onClick={handleOpenCreateProject}
                       className='inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200'
                     >
-                      <svg
-                        className='w-4 h-4 mr-2'
-                        fill='none'
-                        stroke='currentColor'
-                        viewBox='0 0 24 24'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth={2}
-                          d='M12 4v16m8-8H4'
-                        />
+                      <svg className='w-4 h-4 mr-2' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M12 4v16m8-8H4' />
                       </svg>
                       Create Project
                     </button>
@@ -676,21 +535,14 @@ const AdminDashboard = () => {
           {/* Right Column - Activity Feed and Notifications */}
           <div className='space-y-8'>
             <ActivityFeed activities={[]} />
-            <NotificationPanel
-              notifications={notifications}
-              loading={notificationsLoading}
-            />
+            <NotificationPanel notifications={notifications} loading={notificationsLoading} />
           </div>
         </div>
 
-        {/* Bottom Section - Tasks and Team with improved layout */}
+        {/* Bottom Section - Tasks and Team */}
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-8'>
           <TaskSummary tasks={[]} userRole='admin' />
-          <TeamOverview
-            teamMembers={teamMembers}
-            userRole='admin'
-            onInviteMembers={handleInviteMembers}
-          />
+          <TeamOverview teamMembers={teamMembers} userRole='admin' onInviteMembers={handleInviteMembers} />
         </div>
       </div>
 
@@ -699,7 +551,7 @@ const AdminDashboard = () => {
         isOpen={showCreateProject}
         onClose={handleCloseCreateProject}
         onCreateProject={handleCreateProject}
-        organizationId={getCurrentOrganizationId()}
+        organizationId={organizationId}
         organizationName={organizations[0]?.name || 'Organization'}
       />
 

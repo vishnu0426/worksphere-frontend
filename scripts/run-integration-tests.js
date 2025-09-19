@@ -14,7 +14,7 @@ console.log('='.repeat(80));
 // Check if backend is running
 async function checkBackendHealth() {
   try {
-    const response = await fetch('http://localhost:3001/api/v1/health');
+    const response = await fetch('http://192.168.9.119:3001/api/v1/health');
     if (response.ok) {
       console.log('✅ Backend is running and healthy');
       return true;

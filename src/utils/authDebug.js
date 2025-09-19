@@ -56,7 +56,7 @@ export const debugAuth = {
         return false;
       }
 
-      const response = await fetch('http://localhost:8000/api/v1/users/me', {
+      const response = await fetch('http://192.168.9.119:8000/api/v1/users/me', {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',

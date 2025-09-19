@@ -6,7 +6,7 @@
 export const testAcceptInvitationEndpoint = async () => {
   console.log('🔍 Testing Accept Invitation Endpoint from Frontend...');
   
-  const API_BASE_URL = 'http://localhost:8000';
+  const API_BASE_URL = 'http://192.168.9.119:8000';
   const endpoint = `${API_BASE_URL}/api/v1/organizations/accept-invitation`;
   
   const testData = {

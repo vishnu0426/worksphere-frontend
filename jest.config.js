@@ -228,7 +228,7 @@ export default {
   testRunner: 'jest-circus/runner',
 
   // Test URL
-  testURL: 'http://localhost',
+  testURL: 'http://192.168.9.119',
 
   // Timer
   timers: 'real',

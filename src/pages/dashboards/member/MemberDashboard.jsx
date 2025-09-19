@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import RoleBasedHeader from '../../../components/ui/RoleBasedHeader';
 import WelcomeBanner from '../../../components/welcome/WelcomeBanner';
@@ -46,12 +46,12 @@ const MemberDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
-  // Helper to get current organization ID
-  const getCurrentOrganizationId = () => {
+  // FIXED: Memoize the helper function to prevent infinite loops
+  const getCurrentOrganizationId = useCallback(() => {
     return organizations?.[0]?.id || hookCurrentOrganization?.id;
-  };
+  }, [organizations, hookCurrentOrganization]);
 
-  // Load dashboard data from backend
+  // FIXED: Load dashboard data only on mount and location state changes
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
@@ -74,16 +74,16 @@ const MemberDashboard = () => {
           // Get user's organizations via API
           try {
             const userResult = await apiService.users.getCurrentUser();
-            console.log('🔍 MEMBER: User API result:', userResult);
+            console.log('MEMBER: User API result:', userResult);
 
             if (userResult?.organizations) {
               setOrganizations(userResult.organizations);
               console.log(
-                '✅ MEMBER: Organizations loaded:',
+                'MEMBER: Organizations loaded:',
                 userResult.organizations
               );
             } else {
-              console.warn('⚠️ MEMBER: No organizations in API response');
+              console.warn('MEMBER: No organizations in API response');
               // Use fallback organization
               setOrganizations([
                 {
@@ -94,7 +94,7 @@ const MemberDashboard = () => {
               ]);
             }
           } catch (error) {
-            console.error('❌ MEMBER: Failed to load organizations:', error);
+            console.error('MEMBER: Failed to load organizations:', error);
             // Use fallback organization
             setOrganizations([
               {
@@ -164,9 +164,9 @@ const MemberDashboard = () => {
     };
 
     loadDashboardData();
-  }, [location.state, currentUser, organizations.length, getCurrentOrganizationId]);
+  }, [location.state]); // FIXED: Only depend on location.state
 
-  // Listen for real-time project updates
+  // FIXED: Listen for real-time project updates with stable dependency
   useEffect(() => {
     const organizationId = getCurrentOrganizationId();
     if (!organizationId) return;
@@ -198,15 +198,15 @@ const MemberDashboard = () => {
         );
       } else if (action === 'refresh') {
         // Projects will be refreshed automatically by the event system
-        console.log('🔄 Project refresh requested');
+        console.log('Project refresh requested');
       }
     });
 
     return unsubscribe;
-  }, [organizations, getCurrentOrganizationId]);
+  }, [getCurrentOrganizationId]); // Use the memoized function
 
   // Member-specific KPI data
-  const getMemberKPIData = () => {
+  const getMemberKPIData = useCallback(() => {
     const realData = dashboardData || {};
 
     return [
@@ -243,17 +243,19 @@ const MemberDashboard = () => {
         color: 'warning',
       },
     ];
-  };
+  }, [dashboardData]);
 
   // Filter projects based on search and filter criteria - members see all organization projects
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch = project.name
-      .toLowerCase()
-      .includes(searchValue.toLowerCase());
-    const matchesFilter =
-      filterValue === 'all' || project.status === filterValue;
-    return matchesSearch && matchesFilter;
-  });
+  const filteredProjects = React.useMemo(() => {
+    return projects.filter((project) => {
+      const matchesSearch = project.name
+        .toLowerCase()
+        .includes(searchValue.toLowerCase());
+      const matchesFilter =
+        filterValue === 'all' || project.status === filterValue;
+      return matchesSearch && matchesFilter;
+    });
+  }, [projects, searchValue, filterValue]);
 
   // Show loading state
   if (loading) {
@@ -433,10 +435,14 @@ const MemberDashboard = () => {
           <div>
             <QuickActions userRole='member' />
           </div>
+        </div>
 
-          {/* Right Column - Activity Feed and Notifications */}
+        {/* Right Column - Activity Feed and Notifications */}
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8'>
           <div className='space-y-8'>
             <ActivityFeed activities={[]} />
+          </div>
+          <div className='space-y-8'>
             <NotificationPanel
               notifications={notifications}
               loading={notificationsLoading}

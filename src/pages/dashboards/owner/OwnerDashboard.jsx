@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import RoleBasedHeader from '../../../components/ui/RoleBasedHeader';
 import WelcomeBanner from '../../../components/welcome/WelcomeBanner';
@@ -58,8 +58,8 @@ const OwnerDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
-  // Helper to get current organization ID
-  const getCurrentOrganizationId = useCallback(() => {
+  // Memoize organization ID to prevent recalculation
+  const currentOrganizationId = useMemo(() => {
     // First try to get from AuthContext (most reliable)
     const authOrgId = getOrganizationId();
     if (authOrgId) return authOrgId;
@@ -68,7 +68,12 @@ const OwnerDashboard = () => {
     return organizations?.[0]?.id || hookCurrentOrganization?.id;
   }, [getOrganizationId, organizations, hookCurrentOrganization]);
 
-  // Load dashboard data from backend
+  // Helper to get current organization ID (now just returns memoized value)
+  const getCurrentOrganizationId = useCallback(() => {
+    return currentOrganizationId;
+  }, [currentOrganizationId]);
+
+  // Load dashboard data from backend - FIXED: Removed unstable dependencies
   const loadDashboardData = useCallback(async () => {
       try {
         setLoading(true);
@@ -208,15 +213,13 @@ const OwnerDashboard = () => {
           });
         }
 
-        if (organizations.length === 0) {
-          setOrganizations([
-            {
-              id: 'fallback-org',
-              name: 'Default Organization',
-              domain: 'example.com',
-            },
-          ]);
-        }
+        setOrganizations(prev => prev.length === 0 ? [
+          {
+            id: 'fallback-org',
+            name: 'Default Organization',
+            domain: 'example.com',
+          },
+        ] : prev);
 
         // Set empty arrays for other data
         setProjects([]);
@@ -226,22 +229,22 @@ const OwnerDashboard = () => {
       } finally {
         setLoading(false);
       }
-    }, [location.state, currentUser, organizations.length, getCurrentOrganizationId]);
+    }, [location.state]); // FIXED: Only depend on location.state
 
+  // FIXED: Only run once when component mounts or location.state changes
   useEffect(() => {
     loadDashboardData();
-  }, [location.state, loadDashboardData]);
+  }, [loadDashboardData]);
 
-  // Listen for real-time project updates
+  // Listen for real-time project updates - FIXED: Stable dependencies
   useEffect(() => {
-    const organizationId = getCurrentOrganizationId();
-    if (!organizationId) return;
+    if (!currentOrganizationId) return;
 
     const unsubscribe = listenForProjectUpdates((updateData) => {
       const { action, project, organizationId: eventOrgId } = updateData;
 
       // Only handle updates for our organization
-      if (eventOrgId !== organizationId) return;
+      if (eventOrgId !== currentOrganizationId) return;
 
       if (action === 'created' && project) {
         setProjects((prevProjects) => [...prevProjects, project]);
@@ -269,10 +272,10 @@ const OwnerDashboard = () => {
     });
 
     return unsubscribe;
-  }, [organizations, getCurrentOrganizationId, loadDashboardData]);
+  }, [currentOrganizationId, loadDashboardData]); // FIXED: Use memoized organizationId
 
-  // Owner-specific KPI data
-  const getOwnerKPIData = () => {
+  // Owner-specific KPI data - FIXED: Memoized to prevent recalculation
+  const ownerKPIData = useMemo(() => {
     const realData = dashboardData || {};
 
     return [
@@ -309,17 +312,19 @@ const OwnerDashboard = () => {
         color: 'warning',
       },
     ];
-  };
+  }, [dashboardData]);
 
-  // Filter projects based on search and filter criteria
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch = project.name
-      .toLowerCase()
-      .includes(searchValue.toLowerCase());
-    const matchesFilter =
-      filterValue === 'all' || project.status === filterValue;
-    return matchesSearch && matchesFilter;
-  });
+  // Filter projects based on search and filter criteria - FIXED: Memoized
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const matchesSearch = project.name
+        .toLowerCase()
+        .includes(searchValue.toLowerCase());
+      const matchesFilter =
+        filterValue === 'all' || project.status === filterValue;
+      return matchesSearch && matchesFilter;
+    });
+  }, [projects, searchValue, filterValue]);
 
   // Event handlers
   const handleOpenCreateProject = () => {
@@ -615,7 +620,7 @@ const OwnerDashboard = () => {
       <div className='max-w-7xl mx-auto px-6 py-8'>
         {/* KPI Cards */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
-          {getOwnerKPIData().map((kpi, index) => (
+          {ownerKPIData.map((kpi, index) => (
             <KPICard key={index} {...kpi} />
           ))}
         </div>

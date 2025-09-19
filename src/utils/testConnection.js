@@ -1,5 +1,5 @@
 // Test connection to backend API
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.168.9.119:8000';
 
 export const testBackendConnection = async () => {
   console.log('🔍 Testing backend connection...');

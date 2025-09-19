@@ -8,7 +8,7 @@ import sessionService from './sessionService.js';
 export const debugUserPermissions = async (organizationId) => {
   try {
     const response = await fetch(
-      `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/projects/debug/permissions?organization_id=${organizationId}`,
+      `${process.env.REACT_APP_API_URL || 'http://192.168.9.119:8000'}/api/v1/projects/debug/permissions?organization_id=${organizationId}`,
       {
         method: 'GET',
         headers: {
@@ -36,7 +36,7 @@ export const enableProjectCreationForMembers = async (organizationId) => {
     console.log('🔧 Enabling project creation for members...');
 
     const response = await fetch(
-      `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/organizations-enhanced/${organizationId}/settings`,
+      `${process.env.REACT_APP_API_URL || 'http://192.168.9.119:8000'}/api/v1/organizations-enhanced/${organizationId}/settings`,
       {
         method: 'PUT',
         headers: {

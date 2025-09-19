@@ -38,7 +38,7 @@ const ForgotPassword = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/auth/forgot-password', {
+      const response = await fetch('http://192.168.9.119:8000/api/v1/auth/forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
