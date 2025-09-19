@@ -22,7 +22,7 @@ const ApiTest = () => {
   const testHealthEndpoint = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.9.119:3002/health', {
+      const response = await fetch('http://192.168.9.119:3000/health', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -42,10 +42,10 @@ const ApiTest = () => {
     setLoading(true);
     try {
       // Test CORS preflight
-      const response = await fetch('http://192.168.9.119:3002/api/v1/auth/register', {
+      const response = await fetch('http://192.168.9.119:3000/api/v1/auth/register', {
         method: 'OPTIONS',
         headers: {
-          'Origin': 'http://192.168.9.119:3002',
+          'Origin': 'http://192.168.9.119:3000',
           'Access-Control-Request-Method': 'POST',
           'Access-Control-Request-Headers': 'Content-Type',
         },
@@ -75,7 +75,7 @@ const ApiTest = () => {
         organization_name: 'Test Org'
       };
 
-      const response = await fetch('http://192.168.9.119:3002/api/v1/auth/register', {
+      const response = await fetch('http://192.168.9.119:3000/api/v1/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,7 +101,7 @@ const ApiTest = () => {
   const testLogin = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://192.168.9.119:3002/api/v1/auth/login', {
+      const response = await fetch('http://192.168.9.119:3000/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

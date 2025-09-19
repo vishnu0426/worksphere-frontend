@@ -36,7 +36,7 @@ class WebSocketService {
     return new Promise((resolve, reject) => {
       try {
         const wsUrl = `${
-          process.env.REACT_APP_WS_URL || 'ws://192.168.9.119:3002'
+          process.env.REACT_APP_WS_URL || 'ws://192.168.9.119:3000'
         }/ws`;
         this.ws = new WebSocket(
           `${wsUrl}?token=${token}&userId=${userId}&projectId=${
