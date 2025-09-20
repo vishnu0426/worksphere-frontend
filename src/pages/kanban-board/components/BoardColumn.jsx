@@ -121,7 +121,7 @@ const BoardColumn = ({
       </div>
 
       {/* Enhanced Cards Container */}
-      <div className="flex-1 p-4 space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300">
+      <div className="flex-1 p-4 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 min-h-0" style={{ maxHeight: 'calc(100vh - 280px)' }}>
         {cards.map((card) => (
           <TaskCard
             key={card.id}

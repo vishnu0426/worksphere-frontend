@@ -450,7 +450,7 @@ const CreateAIProjectModal = ({ isOpen, onClose, onCreateAIProject, organization
                 iconName={isLoading || isGeneratingPreview ? "Loader2" : "Sparkles"}
                 iconPosition="left"
                 className={`px-8 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 ${
-                  isLoading || isGeneratingPreview ? "animate-spin" : ""
+                  isLoading || isGeneratingPreview ? "animate-pulse" : ""
                 } ${!formData.name.trim()
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 shadow-purple-200"

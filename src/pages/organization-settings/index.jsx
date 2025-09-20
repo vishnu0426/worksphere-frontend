@@ -186,8 +186,11 @@ const OrganizationSettings = () => {
   if (isLoading || profileLoading) {
     return (
       <div className='p-8 text-center'>
-        <div className='animate-pulse text-lg text-muted-foreground'>
-          Loading organization settings...
+        <div className='flex flex-col items-center justify-center space-y-4'>
+          <Icon name='Loader2' size={32} className='animate-spin text-primary' />
+          <div className='text-lg text-muted-foreground'>
+            Loading organization settings...
+          </div>
         </div>
       </div>
     );

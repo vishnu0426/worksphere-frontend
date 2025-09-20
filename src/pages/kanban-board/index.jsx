@@ -15,11 +15,14 @@ import AddCardModal from './components/AddCardModal';
 import AddColumnModal from './components/AddColumnModal';
 import InviteMemberModal from './components/InviteMemberModal';
 import { useUserProfile } from '../../hooks/useUserProfile';
+import useToast from '../../hooks/useToast';
+import { ToastContainer } from '../../components/ui/Toast';
 
 const KanbanBoard = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { currentOrganization, userProfile } = useUserProfile();
+  const { toasts, showToast, hideToast } = useToast();
 
   // User state and role - simplified to use single source of truth
   const [currentUser, setCurrentUser] = useState(null);
@@ -120,6 +123,41 @@ const KanbanBoard = () => {
       setCurrentUser(userProfile);
     }
   }, [userProfile]);
+
+  // Check for card save/delete success notifications
+  useEffect(() => {
+    const locationState = window.history.state?.usr;
+
+    if (locationState?.cardSaved && locationState?.savedCardTitle) {
+      showToast(
+        `Card "${locationState.savedCardTitle}" was saved successfully!`,
+        'success',
+        4000
+      );
+
+      // Clear the state to prevent showing the notification again
+      window.history.replaceState(
+        { ...window.history.state, usr: { ...locationState, cardSaved: false } },
+        '',
+        window.location.pathname + window.location.search
+      );
+    }
+
+    if (locationState?.cardDeleted && locationState?.deletedCardTitle) {
+      showToast(
+        `Card "${locationState.deletedCardTitle}" was deleted successfully!`,
+        'success',
+        4000
+      );
+
+      // Clear the state to prevent showing the notification again
+      window.history.replaceState(
+        { ...window.history.state, usr: { ...locationState, cardDeleted: false } },
+        '',
+        window.location.pathname + window.location.search
+      );
+    }
+  }, [showToast]);
 
   // Helper function to load cards for columns (supports both full reload and partial reload)
   const loadCardsForColumns = async (columnsToLoad, apiService = null, replaceAll = true) => {
@@ -839,8 +877,8 @@ const KanbanBoard = () => {
 
             {/* Board Content */}
             {!isLoading && !error && (
-              <div className='flex-1 p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-900 dark:to-slate-800'>
-                <div className='flex space-x-4 sm:space-x-6 overflow-x-auto pb-6 min-h-[calc(100vh-200px)] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600'>
+              <div className='flex-1 p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-gray-900 dark:to-slate-800 overflow-hidden'>
+                <div className='flex space-x-4 sm:space-x-6 overflow-x-auto pb-6 h-full scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600' style={{ minHeight: 'calc(100vh - 180px)' }}>
                 {/* Columns */}
                 {columns
                   .sort((a, b) => a.order - b.order)
@@ -934,6 +972,9 @@ const KanbanBoard = () => {
           </div>
         </main>
       </div>
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={hideToast} />
     </DndProvider>
   );
 };

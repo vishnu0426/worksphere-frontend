@@ -23,6 +23,9 @@ import ProjectOverview from './pages/project-overview';
 import DashboardRouter from './pages/dashboards/DashboardRouter';
 import Analytics from './pages/analytics';
 import Billing from './pages/billing';
+import NotificationsPage from './pages/notifications';
+import HelpSupport from './pages/help-support';
+
 import NotFound from './pages/NotFound';
 import ApiTest from './components/debug/ApiTest';
 
@@ -178,6 +181,22 @@ const Routes = () => {
           element={
             <ProtectedRoute>
               <Billing />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/notifications'
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path='/help-support'
+          element={
+            <ProtectedRoute>
+              <HelpSupport />
             </ProtectedRoute>
           }
         />

@@ -43,11 +43,7 @@ const ProjectSelector = ({ className = '' }) => {
   };
 
   const getProjectProgress = (project) => {
-    if (project.progress !== undefined) {
-      return project.progress;
-    }
-    
-    // Calculate progress from tasks if available
+    // Always calculate progress from tasks if available, fallback to stored progress
     if (project.tasks) {
       try {
         const tasks = typeof project.tasks === 'string' ? JSON.parse(project.tasks) : project.tasks;
@@ -59,8 +55,9 @@ const ProjectSelector = ({ className = '' }) => {
         console.warn('Failed to parse project tasks:', error);
       }
     }
-    
-    return 0;
+
+    // Fallback to stored progress or 0
+    return project.progress !== undefined ? project.progress : 0;
   };
 
   if (!currentProject && projects.length === 0) {

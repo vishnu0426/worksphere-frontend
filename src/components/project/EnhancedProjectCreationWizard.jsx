@@ -149,8 +149,8 @@ const EnhancedProjectCreationWizard = ({
     >
       <div
         className={cn(
-          'h-full w-full bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col',
-          'animate-in fade-in-0 duration-500'
+          'h-full w-full max-w-7xl bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col rounded-2xl shadow-2xl',
+          'animate-in fade-in-0 duration-500 overflow-hidden'
         )}
       >
         {/* Enhanced Header with Progress */}
@@ -201,16 +201,16 @@ const EnhancedProjectCreationWizard = ({
                 />
               </div>
 
-              <div className='flex items-center justify-between relative'>
+              <div className='flex items-center justify-between relative flex-wrap gap-2 sm:gap-0'>
                 {steps.map((step, index) => (
-                  <div key={step.id} className='flex flex-col items-center'>
+                  <div key={step.id} className='flex flex-col items-center flex-1 min-w-0'>
                     <button
                       onClick={() => handleStepClick(index)}
                       disabled={index > currentStep}
                       className={cn(
-                        'group flex flex-col items-center gap-3 p-4 rounded-2xl transition-all duration-300',
+                        'group flex flex-col items-center gap-2 sm:gap-3 p-2 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-300',
                         'hover:bg-white/80 hover:shadow-lg disabled:cursor-not-allowed',
-                        'transform hover:scale-105',
+                        'transform hover:scale-105 w-full',
                         index === currentStep &&
                           'bg-white shadow-xl border border-blue-200',
                         index < currentStep && 'cursor-pointer',
@@ -219,7 +219,7 @@ const EnhancedProjectCreationWizard = ({
                     >
                       <div
                         className={cn(
-                          'flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300',
+                          'flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-all duration-300',
                           'shadow-lg group-hover:shadow-xl',
                           index === currentStep &&
                             'bg-gradient-to-br from-blue-500 to-purple-600 text-white scale-110',
@@ -230,16 +230,16 @@ const EnhancedProjectCreationWizard = ({
                         )}
                       >
                         {index < currentStep ? (
-                          <Icon name='Check' className='h-6 w-6' />
+                          <Icon name='Check' className='h-4 w-4 sm:h-6 sm:w-6' />
                         ) : (
-                          <Icon name={step.icon} className='h-6 w-6' />
+                          <Icon name={step.icon} className='h-4 w-4 sm:h-6 sm:w-6' />
                         )}
                       </div>
 
                       <div className='text-center'>
                         <div
                           className={cn(
-                            'font-semibold text-sm transition-colors duration-200',
+                            'font-semibold text-xs sm:text-sm transition-colors duration-200 truncate',
                             index === currentStep && 'text-blue-700',
                             index < currentStep && 'text-green-700',
                             index > currentStep && 'text-gray-500'
@@ -249,7 +249,7 @@ const EnhancedProjectCreationWizard = ({
                         </div>
                         <div
                           className={cn(
-                            'text-xs mt-1 transition-colors duration-200',
+                            'text-xs mt-1 transition-colors duration-200 hidden sm:block',
                             index === currentStep && 'text-blue-600',
                             index < currentStep && 'text-green-600',
                             index > currentStep && 'text-gray-400'
@@ -269,7 +269,7 @@ const EnhancedProjectCreationWizard = ({
         {/* Enhanced Step Content */}
         <div className='flex-1 overflow-y-auto'>
           <div className='min-h-full'>
-            <div className='max-w-6xl mx-auto px-6 py-8'>
+            <div className='max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8'>
               <div
                 className={cn(
                   'transition-all duration-500 ease-out',
@@ -297,20 +297,20 @@ const EnhancedProjectCreationWizard = ({
 
         {/* Enhanced Footer */}
         <div className='bg-white/95 backdrop-blur-md border-t border-gray-200/50 shadow-lg'>
-          <div className='max-w-6xl mx-auto px-6 py-4'>
-            <div className='flex items-center justify-between'>
-              <div className='flex items-center gap-4'>
+          <div className='max-w-6xl mx-auto px-4 sm:px-6 py-4'>
+            <div className='flex items-center justify-between flex-wrap gap-4'>
+              <div className='flex items-center gap-2 sm:gap-4'>
                 <div className='text-sm font-medium text-gray-700'>
                   Step {currentStep + 1} of {steps.length}
                 </div>
-                <div className='text-xs text-gray-500'>
+                <div className='text-xs text-gray-500 hidden sm:block'>
                   {steps[currentStep].title}
                 </div>
               </div>
 
               <div className='flex items-center gap-4'>
                 <div className='flex items-center gap-3'>
-                  <div className='w-32 bg-gray-200 rounded-full h-2 overflow-hidden'>
+                  <div className='w-24 sm:w-32 bg-gray-200 rounded-full h-2 overflow-hidden'>
                     <div
                       className='bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-700 ease-out'
                       style={{

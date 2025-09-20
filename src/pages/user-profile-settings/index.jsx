@@ -5,7 +5,6 @@ import Icon from '../../components/AppIcon';
 import PersonalInfoTab from './components/PersonalInfoTab';
 import SecurityTab from './components/SecurityTab';
 import NotificationsTab from './components/NotificationsTab';
-import authService from '../../utils/authService';
 import sessionService from '../../utils/sessionService';
 import { useUserProfile } from '../../hooks/useUserProfile';
 
@@ -17,12 +16,11 @@ const UserProfileSettings = () => {
     userProfile,
     currentOrganization,
     loading: profileLoading,
-    updateUserProfile,
   } = useUserProfile();
 
   // Legacy state for compatibility with existing components
-  const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState('member');
+  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Real user data from backend
@@ -79,12 +77,25 @@ const UserProfileSettings = () => {
 
   const handlePersonalInfoSave = async (formData) => {
     try {
-      // Import realApiService dynamically to avoid circular imports
-      const realApiService = (await import('../../utils/realApiService'))
-        .default;
+      console.log('🔄 Starting profile update with data:', formData);
 
-      // Update user profile via API
-      const result = await realApiService.auth.updateProfile(formData);
+      // Import realApiService dynamically to avoid circular imports
+      const { default: realApiService } = await import('../../utils/realApiService');
+
+      // Ensure the service is available
+      if (!realApiService) {
+        throw new Error('API service is not available');
+      }
+
+      // Try users.updateProfile first (correct method), fallback to auth.updateProfile
+      let result;
+      if (realApiService.users && typeof realApiService.users.updateProfile === 'function') {
+        result = await realApiService.users.updateProfile(formData);
+      } else if (realApiService.auth && typeof realApiService.auth.updateProfile === 'function') {
+        result = await realApiService.auth.updateProfile(formData);
+      } else {
+        throw new Error('Profile update method is not available');
+      }
 
       if (result.error) {
         throw new Error(result.error);
@@ -118,17 +129,58 @@ const UserProfileSettings = () => {
     }
   };
 
-  const handlePasswordChange = (passwordData) => {
-    console.log('Password change requested:', passwordData);
-    // Mock password change - in real app, this would call an API
+  const handlePasswordChange = async (passwordData) => {
+    try {
+      console.log('🔄 Changing password:', { ...passwordData, currentPassword: '[HIDDEN]', newPassword: '[HIDDEN]' });
+
+      // Import realApiService dynamically to avoid circular imports
+      const { default: realApiService } = await import('../../utils/realApiService');
+
+      // Update password via API
+      const result = await realApiService.auth.changePassword({
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword,
+      });
+
+      console.log('✅ Password changed successfully');
+      return result;
+    } catch (error) {
+      console.error('❌ Failed to change password:', error);
+      throw error; // Re-throw to let the component handle the error
+    }
   };
 
   const handleTwoFactorToggle = (enabled) => {
     console.log('Two-factor authentication:', enabled ? 'enabled' : 'disabled');
   };
 
-  const handleNotificationsSave = (notificationSettings) => {
-    console.log('Notification settings updated:', notificationSettings);
+  const handleNotificationsSave = async (notificationSettings) => {
+    try {
+      console.log('🔄 Saving notification settings:', notificationSettings);
+
+      // Import realApiService dynamically to avoid circular imports
+      const { default: realApiService } = await import('../../utils/realApiService');
+
+      // Transform the notification settings to match backend schema
+      const preferencesData = {
+        email_notifications: notificationSettings.email?.projectUpdates ?? true,
+        push_notifications: notificationSettings.inApp?.projectUpdates ?? true,
+        task_assignments: notificationSettings.email?.taskAssignments ?? true,
+        task_updates: notificationSettings.inApp?.taskAssignments ?? true,
+        comments: notificationSettings.email?.comments ?? true,
+        mentions: notificationSettings.email?.mentions ?? true,
+        project_updates: notificationSettings.email?.projectUpdates ?? true,
+        weekly_digest: notificationSettings.email?.weeklyDigest ?? true,
+      };
+
+      // Update notification preferences via API
+      const result = await realApiService.notifications.updatePreferences(preferencesData);
+
+      console.log('✅ Notification preferences updated successfully:', result);
+    } catch (error) {
+      console.error('❌ Failed to update notification preferences:', error);
+      throw error; // Re-throw to let the component handle the error
+    }
   };
 
   const renderTabContent = () => {

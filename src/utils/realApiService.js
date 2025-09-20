@@ -301,6 +301,41 @@ const realApiService = {
       );
       return handle(resp);
     },
+    getActivities: async (organizationId, params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      const url = qs
+        ? `${API_BASE_URL}/api/v1/organizations/${organizationId}/activities?${qs}`
+        : `${API_BASE_URL}/api/v1/organizations/${organizationId}/activities`;
+      const resp = await fetch(url, { headers: getAuthHeaders() });
+      const result = await handle(resp);
+
+      // Ensure activities is always an array
+      if (result && typeof result === 'object') {
+        if (Array.isArray(result)) {
+          return result;
+        }
+        if (Array.isArray(result.data)) {
+          return result.data;
+        }
+        if (Array.isArray(result.activities)) {
+          return result.activities;
+        }
+        // If we get an object but no array, return empty array
+        return [];
+      }
+
+      return [];
+    },
+    initializeDashboard: async (organizationId) => {
+      const resp = await fetch(
+        `${API_BASE_URL}/api/v1/organizations/${organizationId}/initialize-dashboard`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders()
+        }
+      );
+      return handle(resp);
+    },
   },
 
   // Projects
@@ -560,6 +595,64 @@ const realApiService = {
       });
       return handle(resp);
     },
+    getAssignableMembers: async (cardId) => {
+      console.log('🔍 Fetching assignable members for card:', cardId);
+      console.log('🔗 API URL:', `${API_BASE_URL}/api/v1/cards/${cardId}/assignable-members`);
+
+      const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/cards/${cardId}/assignable-members`, {
+        headers: getAuthHeaders(),
+      });
+
+      console.log('📡 Response status:', resp.status);
+      const result = await handle(resp);
+      console.log('📋 API Result:', result);
+
+      return result;
+    },
+    assignUser: async (cardId, userId) => {
+      const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/cards/${cardId}/assign?user_id=${userId}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      return handle(resp);
+    },
+    unassignUser: async (cardId, userId) => {
+      const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/cards/${cardId}/assign/${userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      return handle(resp);
+    },
+    addComment: async (cardId, commentData) => {
+      const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/cards/${cardId}/comments`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(commentData),
+      });
+      return handle(resp);
+    },
+    getMentionAutocomplete: async (cardId, search = '') => {
+      const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/cards/${cardId}/mention-autocomplete?search=${encodeURIComponent(search)}`, {
+        headers: getAuthHeaders(),
+      });
+      return handle(resp);
+    },
+
+    getCardActivities: async (cardId) => {
+      const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/cards/${cardId}/activities`, {
+        headers: getAuthHeaders(),
+      });
+      return handle(resp);
+    },
+
+    addCommentToCard: async (cardId, commentData) => {
+      const resp = await fetchWithCredentials(`${API_BASE_URL}/api/v1/cards/${cardId}/comments`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(commentData),
+      });
+      return handle(resp);
+    },
   },
 
   // Checklist
@@ -669,6 +762,36 @@ const realApiService = {
         { method: 'DELETE', headers: getAuthHeaders() }
       );
     },
+    // Organization Settings
+    getSettings: async (organizationId) => {
+      const resp = await fetch(
+        `${API_BASE_URL}/api/v1/organizations/${organizationId}/settings`,
+        { headers: getAuthHeaders() }
+      );
+      return handle(resp);
+    },
+    updateSettings: async (organizationId, settingsData) => {
+      const resp = await fetch(
+        `${API_BASE_URL}/api/v1/organizations/${organizationId}/settings`,
+        {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(settingsData),
+        }
+      );
+      return handle(resp);
+    },
+    createSettings: async (organizationId, settingsData) => {
+      const resp = await fetch(
+        `${API_BASE_URL}/api/v1/organizations/${organizationId}/settings`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(settingsData),
+        }
+      );
+      return handle(resp);
+    },
   },
 
   // Notifications
@@ -741,23 +864,21 @@ const realApiService = {
         : `${API_BASE_URL}/api/v1/notifications/in-app/user-notifications`;
       const resp = await fetch(url, { headers: getAuthHeaders() });
       const result = await handle(resp);
-      
-      // FIX: Ensure notifications is always an array
-      if (result && typeof result === 'object') {
-        if (Array.isArray(result)) {
-          return result;
-        }
-        if (Array.isArray(result.data)) {
-          return result.data;
-        }
-        if (Array.isArray(result.notifications)) {
-          return result.notifications;
-        }
-        // If we get an object but no array, return empty array
-        return [];
+
+      // Handle the backend response format
+      if (result && result.success && Array.isArray(result.notifications)) {
+        return {
+          success: true,
+          data: result.notifications,
+          count: result.count
+        };
       }
-      
-      return [];
+
+      return {
+        success: false,
+        data: [],
+        count: 0
+      };
     },
     getUnreadCount: async (organizationId = null) => {
       const params = organizationId ? `?organization_id=${organizationId}` : '';
@@ -765,7 +886,20 @@ const realApiService = {
         `${API_BASE_URL}/api/v1/notifications/in-app/unread-count${params}`,
         { headers: getAuthHeaders() }
       );
-      return handle(resp);
+      const result = await handle(resp);
+
+      // Handle the backend response format
+      if (result && result.success && typeof result.unread_count === 'number') {
+        return {
+          success: true,
+          count: result.unread_count
+        };
+      }
+
+      return {
+        success: false,
+        count: 0
+      };
     },
     markInAppAsRead: async (notificationId) => {
       const resp = await fetch(
@@ -782,6 +916,25 @@ const realApiService = {
           method: 'PUT',
           headers: getAuthHeaders(),
           body: JSON.stringify(body)
+        }
+      );
+      return handle(resp);
+    },
+    // Notification Preferences
+    getPreferences: async () => {
+      const resp = await fetch(
+        `${API_BASE_URL}/api/v1/users/notifications/preferences`,
+        { headers: getAuthHeaders() }
+      );
+      return handle(resp);
+    },
+    updatePreferences: async (preferences) => {
+      const resp = await fetch(
+        `${API_BASE_URL}/api/v1/users/notifications/preferences`,
+        {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(preferences),
         }
       );
       return handle(resp);
@@ -949,6 +1102,67 @@ const realApiService = {
       );
       return handle(resp);
     },
+  },
+
+  // Support endpoints
+  support: {
+    getTickets: async () => {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/support/tickets`, {
+        headers: getAuthHeaders()
+      });
+      return handle(resp);
+    },
+    createTicket: async (ticketData) => {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/support/tickets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(ticketData)
+      });
+      return handle(resp);
+    },
+    getTicket: async (ticketId) => {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/support/tickets/${ticketId}`, {
+        headers: getAuthHeaders()
+      });
+      return handle(resp);
+    },
+    updateTicket: async (ticketId, updateData) => {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/support/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(updateData)
+      });
+      return handle(resp);
+    },
+    sendContactMessage: async (messageData) => {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/support/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify(messageData)
+      });
+      return handle(resp);
+    },
+    getHelpArticles: async () => {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/support/help-articles`, {
+        headers: getAuthHeaders()
+      });
+      return handle(resp);
+    },
+    getHelpArticle: async (articleId) => {
+      const resp = await fetch(`${API_BASE_URL}/api/v1/support/help-articles/${articleId}`, {
+        headers: getAuthHeaders()
+      });
+      return handle(resp);
+    }
   },
 };
 

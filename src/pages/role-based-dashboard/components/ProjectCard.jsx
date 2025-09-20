@@ -37,6 +37,25 @@ const ProjectCard = ({ project, userRole }) => {
     );
   }
 
+  // Calculate dynamic progress from tasks
+  const getProjectProgress = (project) => {
+    // Always calculate progress from tasks if available, fallback to stored progress
+    if (project.tasks) {
+      try {
+        const tasks = typeof project.tasks === 'string' ? JSON.parse(project.tasks) : project.tasks;
+        if (tasks && tasks.length > 0) {
+          const completedTasks = tasks.filter(task => task.status === 'completed').length;
+          return Math.round((completedTasks / tasks.length) * 100);
+        }
+      } catch (error) {
+        console.warn('Failed to parse project tasks:', error);
+      }
+    }
+
+    // Fallback to stored progress or 0
+    return project.progress !== undefined ? project.progress : 0;
+  };
+
   const handleProjectClick = () => {
     console.log('Navigating to project management for:', project);
     // Store current project in localStorage for project management page
@@ -183,13 +202,13 @@ const ProjectCard = ({ project, userRole }) => {
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-slate-700">Progress</span>
             <span className="text-lg font-bold text-slate-800">
-              {project?.progress || 0}%
+              {getProjectProgress(project)}%
             </span>
           </div>
           <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
             <div
-              className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(project?.progress || 0)}`}
-              style={{ width: `${project?.progress || 0}%` }}
+              className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(getProjectProgress(project))}`}
+              style={{ width: `${getProjectProgress(project)}%` }}
             ></div>
           </div>
         </div>

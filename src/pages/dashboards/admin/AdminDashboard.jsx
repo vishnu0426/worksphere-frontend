@@ -17,7 +17,6 @@ import CreateProjectModal from '../../../components/modals/CreateProjectModal';
 import InviteMemberModal from '../../team-members/components/InviteMemberModal';
 import { listenForProjectUpdates } from '../../../utils/projectEventService';
 import { useUserProfile } from '../../../hooks/useUserProfile';
-import { showOrganizationSettingsDebug } from '../../../utils/organizationSettings';
 
 const AdminDashboard = () => {
   const location = useLocation();
@@ -214,16 +213,7 @@ const AdminDashboard = () => {
     return unsubscribe;
   }, [organizationId]); // Only when organizationId changes
 
-  // FIX: Debug panel effect with proper dependency
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && organizationId) {
-      const timer = setTimeout(() => {
-        showOrganizationSettingsDebug(organizationId);
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [organizationId]);
+
 
   // FIX: Memoize KPI data calculation
   const adminKPIData = useMemo(() => {

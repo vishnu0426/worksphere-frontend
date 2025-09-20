@@ -1,36 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Image from '../../../components/AppImage';
+import MentionTextarea from '../../../components/ui/MentionTextarea';
+import authService from '../../../utils/authService';
+import realApiService from '../../../utils/realApiService';
 
 const ActivityTimeline = ({ card, onAddComment, canComment }) => {
   const [newComment, setNewComment] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Real current user and activity data should be loaded from API
-  const currentUser = {
-    id: 1,
-    name: 'User',
-    avatar: '/assets/images/avatar.jpg'
-  };
+  // Load current user and activities on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
 
-  // Real activity data should be loaded from API
-  const activities = [];
+        // Get current user
+        const user = authService.getCurrentUser();
+        setCurrentUser(user);
 
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      const comment = {
-        id: Date.now(),
-        type: 'comment',
-        user: currentUser,
-        content: newComment.trim(),
-        timestamp: new Date(),
-        mentions: extractMentions(newComment)
-      };
-      
-      onAddComment(comment);
-      setNewComment('');
-      setIsCommenting(false);
+        // Load card activities including comments
+        if (card?.id) {
+          const cardActivities = await realApiService.cards.getCardActivities(card.id);
+          setActivities(cardActivities || []);
+        }
+      } catch (error) {
+        console.error('Error loading activity data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [card?.id]);
+
+  const handleAddComment = async () => {
+    if (newComment.trim() && !submitting && card?.id) {
+      try {
+        setSubmitting(true);
+
+        const commentData = {
+          content: newComment.trim(),
+          mentions: extractMentions(newComment)
+        };
+
+        // Add comment via API
+        const addedComment = await realApiService.cards.addCommentToCard(card.id, commentData);
+
+        // Update local activities state
+        setActivities(prev => [...prev, addedComment]);
+
+        // Call parent callback if provided
+        if (onAddComment) {
+          onAddComment(addedComment);
+        }
+
+        setNewComment('');
+        setIsCommenting(false);
+      } catch (error) {
+        console.error('Error adding comment:', error);
+        // You might want to show an error message to the user here
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -112,39 +149,46 @@ const ActivityTimeline = ({ card, onAddComment, canComment }) => {
       </div>
 
       {/* Add Comment Section */}
-      {canComment && (
+      {canComment && currentUser && (
         <div className="flex space-x-3">
           <Image
-            src={currentUser.avatar}
-            alt={currentUser.name}
+            src={currentUser.avatar || '/assets/images/avatar.jpg'}
+            alt={currentUser.name || 'User'}
             className="w-8 h-8 rounded-full object-cover flex-shrink-0"
           />
           <div className="flex-1">
             {isCommenting ? (
               <div className="space-y-3">
-                <textarea
+                <MentionTextarea
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  onChange={setNewComment}
                   onKeyDown={handleKeyPress}
                   placeholder="Write a comment... Use @username to mention someone"
-                  className="w-full min-h-[80px] p-3 border border-border rounded-md resize-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  autoFocus
+                  cardId={card?.id}
+                  className="min-h-[80px] focus:ring-2 focus:ring-primary focus:border-transparent"
+                  rows={3}
+                  disabled={submitting}
                 />
                 <div className="flex items-center justify-between">
                   <div className="text-xs text-text-secondary">
                     Press Ctrl+Enter to post, Escape to cancel
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button size="sm" onClick={handleAddComment}>
-                      Comment
+                    <Button
+                      size="sm"
+                      onClick={handleAddComment}
+                      disabled={submitting || !newComment.trim()}
+                    >
+                      {submitting ? 'Posting...' : 'Comment'}
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setIsCommenting(false);
                         setNewComment('');
                       }}
+                      disabled={submitting}
                     >
                       Cancel
                     </Button>
@@ -165,35 +209,44 @@ const ActivityTimeline = ({ card, onAddComment, canComment }) => {
 
       {/* Activity Timeline */}
       <div className="space-y-4">
-        {activities.map((activity) => (
-          <div key={activity.id} className="flex space-x-3">
-            <Image
-              src={activity.user.avatar}
-              alt={activity.user.name}
-              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="font-medium text-text-primary text-sm">
-                  {activity.user.name}
-                </span>
-                <span className="text-xs text-text-secondary">
-                  {formatTimestamp(activity.timestamp)}
-                </span>
-              </div>
-              <div className="text-sm">
-                {renderActivityContent(activity)}
-              </div>
-            </div>
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+            <p className="text-text-secondary">Loading activity...</p>
           </div>
-        ))}
-        
-        {activities.length === 0 && (
-          <div className="text-center py-8 text-text-secondary">
-            <Icon name="MessageSquare" size={48} className="mx-auto mb-3 opacity-50" />
-            <p>No activity yet</p>
-            <p className="text-sm">Comments and updates will appear here</p>
-          </div>
+        ) : (
+          <>
+            {activities.map((activity) => (
+              <div key={activity.id} className="flex space-x-3">
+                <Image
+                  src={activity.user?.avatar || '/assets/images/avatar.jpg'}
+                  alt={activity.user?.name || 'User'}
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="font-medium text-text-primary text-sm">
+                      {activity.user?.name || 'Unknown User'}
+                    </span>
+                    <span className="text-xs text-text-secondary">
+                      {formatTimestamp(new Date(activity.timestamp || activity.created_at))}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    {renderActivityContent(activity)}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {activities.length === 0 && !loading && (
+              <div className="text-center py-8 text-text-secondary">
+                <Icon name="MessageSquare" size={48} className="mx-auto mb-3 opacity-50" />
+                <p>No activity yet</p>
+                <p className="text-sm">Comments and updates will appear here</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

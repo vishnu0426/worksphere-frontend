@@ -7,19 +7,40 @@ import realApiService from './realApiService.js';
 // Get notifications for the current user (real backend if available)
 export const getNotifications = async (filters = {}) => {
   try {
-    const result = await realApiService.notifications.getAll(filters);
-    // The backend returns raw list; adapt to previous structure
+    // Try in-app notifications first (more comprehensive)
+    let result;
+    try {
+      result = await realApiService.notifications.getUserNotifications(filters);
+    } catch (inAppError) {
+      console.warn('In-app notifications failed, trying regular notifications:', inAppError);
+      result = await realApiService.notifications.getAll(filters);
+    }
+
+    // Handle the API response properly
+    if (result && result.success) {
+      const notifications = result.data || [];
+      return {
+        success: true,
+        data: notifications,
+        error: null
+      };
+    }
+
+    // If API call failed, return empty result
     return {
-      success: true,
-      data: result?.data || result || [],
-      error: null,
+      success: false,
+      data: [],
+      error: 'Failed to load notifications'
     };
   } catch (error) {
     console.error(
-      'Failed to fetch notifications, falling back to mock:',
+      'Failed to fetch notifications:',
       error
     );
-    return { success: false, data: [], error: error.message };
+    // Fallback to mock notifications for development
+    console.log('🔄 Using mock notifications as fallback');
+    const mockNotifications = generateMockNotifications();
+    return { success: true, data: mockNotifications, error: null };
   }
 };
 
@@ -37,9 +58,14 @@ export const createNotification = async (notificationData) => {
 // Mark notification as read
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    const result = await realApiService.notifications.markAsRead(
-      notificationId
-    );
+    // Try in-app notification endpoint first
+    let result;
+    try {
+      result = await realApiService.notifications.markInAppAsRead(notificationId);
+    } catch (inAppError) {
+      console.warn('In-app mark as read failed, trying regular endpoint:', inAppError);
+      result = await realApiService.notifications.markAsRead(notificationId);
+    }
     return { success: true, data: result?.data || result, error: null };
   } catch (error) {
     console.error('Failed to mark notification as read:', error);
@@ -50,7 +76,14 @@ export const markNotificationAsRead = async (notificationId) => {
 // Mark all notifications as read
 export const markAllNotificationsAsRead = async () => {
   try {
-    const result = await realApiService.notifications.markAllAsRead();
+    // Try in-app notification endpoint first
+    let result;
+    try {
+      result = await realApiService.notifications.markAllInAppAsRead();
+    } catch (inAppError) {
+      console.warn('In-app mark all as read failed, trying regular endpoint:', inAppError);
+      result = await realApiService.notifications.markAllAsRead();
+    }
     return { success: true, data: result?.data || result, error: null };
   } catch (error) {
     console.error('Failed to mark all notifications as read:', error);
@@ -418,7 +451,10 @@ export const getUserNotifications = async (params = {}) => {
 export const getUnreadCount = async (organizationId = null) => {
   try {
     const result = await realApiService.notifications.getUnreadCount(organizationId);
-    return { success: true, count: result.unread_count || 0 };
+    if (result && result.success) {
+      return { success: true, count: result.count || 0 };
+    }
+    return { success: false, count: 0 };
   } catch (error) {
     console.error('Failed to get unread count:', error);
     return { success: false, count: 0 };

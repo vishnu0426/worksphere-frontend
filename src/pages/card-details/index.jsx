@@ -14,6 +14,8 @@ import DueDatePicker from './components/DueDatePicker';
 import LabelManager from './components/LabelManager';
 import ChecklistManager from './components/ChecklistManager';
 import ActivityTimeline from './components/ActivityTimeline';
+import useToast from '../../hooks/useToast';
+import { ToastContainer } from '../../components/ui/Toast';
 // (removed unused authService and sessionService imports)
 
 const CardDetails = ({ onSave }) => {
@@ -21,6 +23,7 @@ const CardDetails = ({ onSave }) => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const cardId = searchParams.get('id');
+  const { toasts, showToast, hideToast } = useToast();
 
   // Validate card ID format
   const isValidUUID = (str) => {
@@ -363,10 +366,30 @@ const CardDetails = ({ onSave }) => {
       }
       setPendingChanges({});
       setHasUnsavedChanges(false);
+
+      // Show success notification
+      showToast('Card saved successfully! Redirecting to board...', 'success', 2000);
+
+      // Navigate back to kanban board after a short delay
+      setTimeout(() => {
+        const returnPath = location.state?.returnPath || '/kanban-board';
+        navigate(returnPath, {
+          state: {
+            // Preserve project context if available
+            projectId: location.state?.projectId,
+            project: location.state?.project,
+            // Add success flag for potential board-level notifications
+            cardSaved: true,
+            savedCardId: cardData.id,
+            savedCardTitle: cardData.title
+          }
+        });
+      }, 1500);
+
     } catch (error) {
       console.error('Error saving card changes:', error);
-      // Show user-friendly error message
-      alert('Failed to save changes. Please try again.');
+      // Show error toast instead of alert
+      showToast('Failed to save changes. Please try again.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -378,6 +401,10 @@ const CardDetails = ({ onSave }) => {
     window.location.reload();
   };
   const handleAddComment = (comment) => {};
+
+  // Alias for handleSaveChanges to match component expectations
+  const handleSave = handleSaveChanges;
+
   const handleClose = () => {
     if (hasUnsavedChanges) {
       const confirmLeave = window.confirm(
@@ -385,11 +412,32 @@ const CardDetails = ({ onSave }) => {
       );
       if (!confirmLeave) return;
     }
-    navigate('/kanban-board');
+    const returnPath = location.state?.returnPath || '/kanban-board';
+    navigate(returnPath, {
+      state: {
+        // Preserve project context if available
+        projectId: location.state?.projectId,
+        project: location.state?.project
+      }
+    });
   };
   const handleDelete = () => {
     if (window.confirm('Are you sure you want to delete this card?')) {
-      navigate('/kanban-board');
+      // Show success notification for deletion
+      showToast('Card deleted successfully!', 'success', 3000);
+
+      // Navigate back with preserved state
+      const returnPath = location.state?.returnPath || '/kanban-board';
+      navigate(returnPath, {
+        state: {
+          // Preserve project context if available
+          projectId: location.state?.projectId,
+          project: location.state?.project,
+          // Add deletion flag for potential board-level notifications
+          cardDeleted: true,
+          deletedCardTitle: cardData.title
+        }
+      });
     }
   };
 
@@ -403,17 +451,18 @@ const CardDetails = ({ onSave }) => {
   // --- UI ---
   if (isLoading) {
     return (
-      <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
-        <div className='bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-8 flex flex-col items-center border border-gray-200 dark:border-gray-700'>
-          <div className='relative mb-6'>
-            <div className='animate-spin rounded-full h-12 w-12 border-4 border-gray-200 dark:border-gray-700'></div>
-            <div className='animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent absolute top-0 left-0'></div>
+      <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'>
+        <div className='bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-8 flex flex-col items-center border border-gray-300 dark:border-gray-600'>
+          <div className='mb-6'>
+            <div className='w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center animate-pulse'>
+              <Icon name='FileText' size={24} className='text-white' />
+            </div>
           </div>
           <div className='text-center'>
-            <div className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+            <div className='text-xl font-semibold text-gray-900 dark:text-white mb-3'>
               Loading Card Details
             </div>
-            <div className='text-gray-600 dark:text-gray-300'>
+            <div className='text-gray-600 dark:text-gray-300 text-sm'>
               Please wait while we fetch the card information...
             </div>
           </div>
@@ -423,29 +472,33 @@ const CardDetails = ({ onSave }) => {
   }
   if (loadError) {
     return (
-      <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm'>
-        <div className='bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 p-8 flex flex-col items-center border border-red-200 dark:border-red-800'>
-          <div className='w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6'>
-            <Icon name='AlertTriangle' size={32} className='text-red-600 dark:text-red-400' />
+      <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'>
+        <div className='bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-8 flex flex-col items-center border border-red-300 dark:border-red-700'>
+          <div className='w-20 h-20 bg-red-500 rounded-full flex items-center justify-center mb-6'>
+            <Icon name='AlertTriangle' size={28} className='text-white' />
           </div>
-          <div className='text-center mb-6'>
-            <div className='text-xl font-semibold text-gray-900 dark:text-white mb-2'>
+          <div className='text-center mb-8'>
+            <div className='text-xl font-semibold text-gray-900 dark:text-white mb-3'>
               Failed to Load Card
             </div>
-            <div className='text-gray-600 dark:text-gray-300'>{loadError}</div>
+            <div className='text-gray-600 dark:text-gray-300 text-sm leading-relaxed'>{loadError}</div>
           </div>
-          <button
-            onClick={handleRetry}
-            className='text-primary hover:underline px-4 py-2 border border-primary rounded'
-          >
-            Retry
-          </button>
-          <button
-            onClick={handleClose}
-            className='ml-4 text-text-secondary hover:underline px-4 py-2 border border-border rounded'
-          >
-            Return to Board
-          </button>
+          <div className='flex flex-col sm:flex-row gap-3 w-full'>
+            <button
+              onClick={handleRetry}
+              className='flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 shadow-lg'
+            >
+              <Icon name='RefreshCw' size={16} />
+              Retry
+            </button>
+            <button
+              onClick={handleClose}
+              className='flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2'
+            >
+              <Icon name='ArrowLeft' size={16} />
+              Return to Board
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -454,140 +507,106 @@ const CardDetails = ({ onSave }) => {
     return null;
   }
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40'>
-      <div className='bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto p-0 flex flex-col'>
-        <div className='flex flex-col divide-y divide-border'>
-          <CardHeader
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full h-[90vh] overflow-hidden flex flex-col">
+
+        <CardHeader
+          card={cardData}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          onClose={handleClose}
+          onDelete={handleDelete}
+          onTitleChange={handleTitleChange}
+          hasChanged={hasUnsavedChanges}
+        />
+
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <CardDescription
             card={cardData}
-            onTitleChange={handleTitleChange}
-            onClose={handleClose}
-            onDelete={handleDelete}
             canEdit={canEdit}
-            canDelete={canDelete}
-            hasChanged={hasFieldChanged('title')}
+            onDescriptionChange={handleDescriptionChange}
+            hasChanged={hasUnsavedChanges}
           />
-          {hasUnsavedChanges && (
-            <div className='bg-warning/10 border-b border-warning/20 px-8 py-4'>
-              <div className='flex items-center justify-between'>
-                <div className='flex items-center space-x-3'>
-                  <Icon name='AlertCircle' size={20} className='text-warning' />
-                  <div>
-                    <p className='text-sm font-medium text-warning'>
-                      You have unsaved changes
-                    </p>
-                    <p className='text-xs text-warning/80'>
-                      Save your changes to avoid losing them
-                    </p>
-                  </div>
-                </div>
-                <div className='flex items-center space-x-3'>
-                  <button
-                    onClick={handleDiscardChanges}
-                    disabled={isSaving}
-                    className='px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border rounded-md hover:bg-muted transition-colors disabled:opacity-50'
-                  >
-                    Discard
-                  </button>
-                  <button
-                    onClick={handleSaveChanges}
-                    disabled={isSaving}
-                    className='px-6 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md transition-colors disabled:opacity-50 flex items-center space-x-2'
-                  >
-                    {isSaving ? (
-                      <>
-                        <Icon
-                          name='Loader2'
-                          size={16}
-                          className='animate-spin'
-                        />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Icon name='Save' size={16} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className='flex flex-col md:flex-row overflow-y-auto max-h-[80vh]'>
-            <div className='flex-1 md:w-3/5 p-8 space-y-8'>
-              <CardDescription
-                card={cardData}
-                onDescriptionChange={handleDescriptionChange}
-                canEdit={canEdit}
-                hasChanged={hasFieldChanged('description')}
-              />
-              <ChecklistManager
-                card={cardData}
-                onChecklistChange={handleChecklistChange}
-                canEdit={canEdit}
-                hasChanged={hasFieldChanged('checklist')}
-              />
-              <ActivityTimeline
-                card={cardData}
-                onAddComment={handleAddComment}
-                canComment={canComment}
-              />
-            </div>
-            <div className='md:w-2/5 p-8 bg-gradient-to-b from-muted/20 to-muted/40 border-l border-border/50 space-y-8'>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
               <MemberAssignment
                 card={cardData}
-                onMembersChange={handleMembersChange}
                 canEdit={canEdit}
-                hasChanged={hasFieldChanged('assignedMembers')}
+                onMembersChange={handleMembersChange}
+                hasChanged={hasUnsavedChanges}
               />
               <DueDatePicker
                 card={cardData}
-                onDueDateChange={handleDueDateChange}
                 canEdit={canEdit}
-                hasChanged={hasFieldChanged('dueDate')}
+                onDueDateChange={handleDueDateChange}
+                hasChanged={hasUnsavedChanges}
               />
               <LabelManager
                 card={cardData}
-                onLabelsChange={handleLabelsChange}
                 canEdit={canEdit}
-                hasChanged={hasFieldChanged('labels')}
+                onLabelsChange={handleLabelsChange}
+                hasChanged={hasUnsavedChanges}
               />
-              <div className='bg-surface/50 rounded-lg p-6 border border-border/30 space-y-4'>
-                <h4 className='font-semibold text-text-primary flex items-center gap-2'>
-                  <Icon name='Info' size={16} className='text-primary' />
-                  Card Information
-                </h4>
-                <div className='space-y-3 text-sm'>
-                  <div className='flex justify-between items-center py-2 border-b border-border/20'>
-                    <span className='text-text-secondary font-medium'>
-                      Created:
-                    </span>
-                    <span className='text-text-primary'>
-                      {new Date(cardData.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className='flex justify-between items-center py-2 border-b border-border/20'>
-                    <span className='text-text-secondary font-medium'>
-                      Last updated:
-                    </span>
-                    <span className='text-text-primary'>
-                      {new Date(cardData.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className='flex justify-between items-center py-2'>
-                    <span className='text-text-secondary font-medium'>
-                      Card ID:
-                    </span>
-                    <span className='text-text-primary font-mono text-xs bg-muted px-2 py-1 rounded'>
-                      #{cardData.id}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            </div>
+
+            <div className="space-y-6">
+              <ChecklistManager
+                card={cardData}
+                canEdit={canEdit}
+                onChecklistChange={handleChecklistChange}
+                hasChanged={hasUnsavedChanges}
+              />
             </div>
           </div>
+
+          <ActivityTimeline
+            card={cardData}
+            canComment={canComment}
+            onAddComment={handleAddComment}
+          />
         </div>
+
+        {/* Save/Discard Changes Footer */}
+        {hasUnsavedChanges && (
+          <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <Icon name="AlertCircle" size={16} className="text-amber-500" />
+              <span>You have unsaved changes</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleDiscardChanges}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Discard Changes
+              </button>
+              <button
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="Save" size={16} />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onHide={hideToast} />
     </div>
   );
 };

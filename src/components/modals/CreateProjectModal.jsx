@@ -349,7 +349,7 @@ const CreateProjectModal = ({
               disabled={isLoading || !formData.name.trim()}
               iconName={isLoading ? 'Loader2' : 'Plus'}
               iconPosition='left'
-              className={isLoading ? 'animate-spin' : ''}
+              className={isLoading ? 'animate-pulse' : ''}
             >
               {isLoading ? 'Creating...' : 'Create Project'}
             </Button>

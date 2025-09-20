@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import Icon from '../AppIcon';
 import Button from './Button';
 import authService from '../../utils/authService';
+import { useUserProfile } from '../../hooks/useUserProfile';
 
 
 const Header = () => {
@@ -17,10 +18,13 @@ const Header = () => {
   const userDropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
 
+  // Use centralized user profile hook for consistent data
+  const { userProfile } = useUserProfile();
+
   // Real user data should be passed as props or from context
-  const currentUser = {
-    name: 'User',
-    email: 'user@example.com',
+  const currentUser = userProfile || {
+    name: 'Loading...',
+    email: 'loading@example.com',
     avatar: '/assets/images/avatar.jpg',
     role: 'Member',
   };
@@ -325,7 +329,7 @@ const Header = () => {
             >
               <div className='w-8 h-8 bg-primary rounded-full flex items-center justify-center'>
                 <span className='text-sm font-medium text-primary-foreground'>
-                  {currentUser.name
+                  {(currentUser.displayName || currentUser.name || 'U')
                     .split(' ')
                     .map((n) => n[0])
                     .join('')}
@@ -333,7 +337,7 @@ const Header = () => {
               </div>
               <div className='hidden md:block text-left'>
                 <div className='text-sm font-medium text-text-primary'>
-                  {currentUser.name}
+                  {currentUser.displayName || currentUser.name || 'User'}
                 </div>
                 <div className='text-xs text-text-secondary'>
                   {currentUser.role}
@@ -351,10 +355,10 @@ const Header = () => {
                 <div className='p-2'>
                   <div className='px-2 py-2 border-b border-border'>
                     <div className='font-medium text-text-primary'>
-                      {currentUser.name}
+                      {currentUser.displayName || currentUser.name || 'User'}
                     </div>
                     <div className='text-sm text-text-secondary'>
-                      {currentUser.email}
+                      {currentUser.email || 'user@example.com'}
                     </div>
                   </div>
                   <div className='py-1'>
@@ -365,6 +369,14 @@ const Header = () => {
                     >
                       <Icon name='User' size={16} />
                       <span>Profile Settings</span>
+                    </Link>
+                    <Link
+                      to='/notifications'
+                      onClick={() => setIsUserDropdownOpen(false)}
+                      className='w-full flex items-center space-x-2 px-2 py-2 text-sm text-text-primary hover:bg-muted rounded-sm transition-micro'
+                    >
+                      <Icon name='Bell' size={16} />
+                      <span>Notifications</span>
                     </Link>
                     <button className='w-full flex items-center space-x-2 px-2 py-2 text-sm text-text-primary hover:bg-muted rounded-sm transition-micro'>
                       <Icon name='Bell' size={16} />

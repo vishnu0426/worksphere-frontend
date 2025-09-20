@@ -220,6 +220,31 @@ class WebSocketService {
         this.emit('userStatusChanged', payload);
         break;
 
+      case 'support_ticket_created':
+        this.emit('supportTicketCreated', payload);
+        break;
+
+      case 'contact_message_sent':
+        this.emit('contactMessageSent', payload);
+        break;
+
+      case 'direct_message':
+        this.emit('directMessage', payload);
+        break;
+
+      case 'connection_established':
+        console.log('WebSocket connection established:', payload);
+        break;
+
+      case 'pong':
+        console.log('WebSocket pong received');
+        break;
+
+      case 'error':
+        console.error('WebSocket error:', payload);
+        break;
+        break;
+
       case 'typing_indicator':
         this.emit('typingIndicator', payload);
         break;

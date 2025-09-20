@@ -257,12 +257,28 @@ const ProjectOverview = ({ project, userRole, onSwitchTab }) => {
       window.removeEventListener('projectUpdated', handleProjectUpdate);
   }, [project, loadProjectData]);
 
+  // Calculate dynamic progress from tasks
+  const calculateProjectProgress = useCallback(() => {
+    if (!project?.tasks) return project?.progress || 0;
+
+    try {
+      const tasks = typeof project.tasks === 'string' ? JSON.parse(project.tasks) : project.tasks;
+      if (!tasks || tasks.length === 0) return project?.progress || 0;
+
+      const completedTasks = tasks.filter(task => task.status === 'completed').length;
+      return Math.round((completedTasks / tasks.length) * 100);
+    } catch (error) {
+      console.error('Error calculating project progress:', error);
+      return project?.progress || 0;
+    }
+  }, [project]);
+
   // Use actual project data with fallbacks for missing properties
   const projectData = {
     name: project?.name || 'Untitled Project',
     description: project?.description || 'No description available',
     status: project?.status || 'Active',
-    progress: project?.progress || 0,
+    progress: calculateProjectProgress(),
     startDate:
       project?.start_date ||
       project?.startDate ||

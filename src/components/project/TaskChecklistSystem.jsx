@@ -87,7 +87,7 @@ const TaskChecklistSystem = ({
   const [sortBy, setSortBy] = useState('dueDate');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedTasks, setSelectedTasks] = useState([]);
-  const [_isTaskModalOpen, _setIsTaskModalOpen] = useState(false);
+  const [, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [showCompleted, setShowCompleted] = useState(true);
 
@@ -107,24 +107,24 @@ const TaskChecklistSystem = ({
     { value: 'blocked', label: 'Blocked' }
   ];
 
-  const _assigneeOptions = [
-    { value: 'all', label: 'All Assignees' },
-    { value: 'developer', label: 'Developer' },
-    { value: 'designer', label: 'Designer' },
-    { value: 'architect', label: 'Architect' },
-    { value: 'backend-dev', label: 'Backend Developer' },
-    { value: 'frontend-dev', label: 'Frontend Developer' },
-    { value: 'qa', label: 'QA Engineer' }
-  ];
+  // const assigneeOptions = [
+  //   { value: 'all', label: 'All Assignees' },
+  //   { value: 'developer', label: 'Developer' },
+  //   { value: 'designer', label: 'Designer' },
+  //   { value: 'architect', label: 'Architect' },
+  //   { value: 'backend-dev', label: 'Backend Developer' },
+  //   { value: 'frontend-dev', label: 'Frontend Developer' },
+  //   { value: 'qa', label: 'QA Engineer' }
+  // ];
 
-  const _categoryOptions = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'setup', label: 'Setup' },
-    { value: 'design', label: 'Design' },
-    { value: 'development', label: 'Development' },
-    { value: 'testing', label: 'Testing' },
-    { value: 'deployment', label: 'Deployment' }
-  ];
+  // const categoryOptions = [
+  //   { value: 'all', label: 'All Categories' },
+  //   { value: 'setup', label: 'Setup' },
+  //   { value: 'design', label: 'Design' },
+  //   { value: 'development', label: 'Development' },
+  //   { value: 'testing', label: 'Testing' },
+  //   { value: 'deployment', label: 'Deployment' }
+  // ];
 
   const sortOptions = [
     { value: 'dueDate', label: 'Due Date' },
@@ -191,13 +191,13 @@ const TaskChecklistSystem = ({
     ));
   };
 
-  const _toggleTaskStatus = (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (task) {
-      const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-      updateTask(taskId, { status: newStatus });
-    }
-  };
+  // const toggleTaskStatus = (taskId) => {
+  //   const task = tasks.find(t => t.id === taskId);
+  //   if (task) {
+  //     const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+  //     updateTask(taskId, { status: newStatus });
+  //   }
+  // };
 
   const toggleSubtask = (taskId, subtaskId) => {
     setTasks(prev => prev.map(task => {
@@ -246,25 +246,25 @@ const TaskChecklistSystem = ({
     };
     
     setEditingTask(newTask);
-    _setIsTaskModalOpen(true);
+    setIsTaskModalOpen(true);
   };
 
   const editTask = (task) => {
     setEditingTask({ ...task });
-    _setIsTaskModalOpen(true);
+    setIsTaskModalOpen(true);
   };
 
-  const _saveTask = () => {
-    if (editingTask) {
-      if (tasks.find(t => t.id === editingTask.id)) {
-        updateTask(editingTask.id, editingTask);
-      } else {
-        setTasks(prev => [...prev, editingTask]);
-      }
-      _setIsTaskModalOpen(false);
-      setEditingTask(null);
-    }
-  };
+  // const saveTask = () => {
+  //   if (editingTask) {
+  //     if (tasks.find(t => t.id === editingTask.id)) {
+  //       updateTask(editingTask.id, editingTask);
+  //     } else {
+  //       setTasks(prev => [...prev, editingTask]);
+  //     }
+  //     setIsTaskModalOpen(false);
+  //     setEditingTask(null);
+  //   }
+  // };
 
   const deleteTask = (taskId) => {
     setTasks(prev => prev.filter(task => task.id !== taskId));

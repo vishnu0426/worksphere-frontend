@@ -340,7 +340,7 @@ const ProjectConfirmationSummary = ({
           disabled={!allChecksCompleted || isLoading}
           iconName={isLoading ? "Loader2" : "Check"}
           className={`px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-200 ${
-            isLoading ? 'animate-spin' : ''
+            isLoading ? 'animate-pulse' : ''
           } ${!allChecksCompleted ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 transform transition-all duration-200'}`}
         >
           {isLoading ? 'Creating Project...' : 'Finalize Project'}

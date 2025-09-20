@@ -308,9 +308,12 @@ const RoleBasedHeader = ({
         const countResult = await notificationService.getUnreadCount();
         if (countResult && countResult.success) {
           setUnreadCount(countResult.count);
+        } else {
+          setUnreadCount(0);
         }
       } catch (error) {
         console.error('Failed to load unread count:', error);
+        setUnreadCount(0);
       }
     };
 
@@ -1295,17 +1298,15 @@ const RoleBasedHeader = ({
             >
               <div className='w-8 h-8 bg-primary rounded-full flex items-center justify-center'>
                 <span className='text-sm font-medium text-primary-foreground'>
-                  {user?.name
-                    ? user.name
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join('')
-                    : 'U'}
+                  {(user?.displayName || user?.name || currentUser?.displayName || currentUser?.name || 'U')
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')}
                 </span>
               </div>
               <div className='hidden md:block text-left'>
                 <div className='text-sm font-medium text-text-primary'>
-                  {user?.name || 'User'}
+                  {user?.displayName || user?.name || currentUser?.displayName || currentUser?.name || 'User'}
                 </div>
                 <div className='text-xs text-text-secondary'>
                   {actualUserRole ? actualUserRole.charAt(0).toUpperCase() + actualUserRole.slice(1) : 'Loading...'}
@@ -1323,7 +1324,7 @@ const RoleBasedHeader = ({
                 <div className='p-2'>
                   <div className='px-2 py-2 border-b border-border'>
                     <div className='font-medium text-text-primary'>
-                      {user?.name || user?.displayName || 'User'}
+                      {user?.displayName || user?.name || currentUser?.displayName || currentUser?.name || 'User'}
                     </div>
                     <div className='text-sm text-text-secondary'>
                       {user?.email || 'user@example.com'}
@@ -1339,19 +1340,28 @@ const RoleBasedHeader = ({
                   <div className='py-1'>
                     <Link
                       to='/user-profile-settings'
+                      onClick={() => setIsUserDropdownOpen(false)}
                       className='w-full flex items-center space-x-2 px-2 py-2 text-sm text-text-primary hover:bg-muted rounded-sm transition-micro'
                     >
                       <Icon name='User' size={16} />
                       <span>Profile Settings</span>
                     </Link>
-                    <button className='w-full flex items-center space-x-2 px-2 py-2 text-sm text-text-primary hover:bg-muted rounded-sm transition-micro'>
+                    <Link
+                      to='/notifications'
+                      onClick={() => setIsUserDropdownOpen(false)}
+                      className='w-full flex items-center space-x-2 px-2 py-2 text-sm text-text-primary hover:bg-muted rounded-sm transition-micro'
+                    >
                       <Icon name='Bell' size={16} />
                       <span>Notifications</span>
-                    </button>
-                    <button className='w-full flex items-center space-x-2 px-2 py-2 text-sm text-text-primary hover:bg-muted rounded-sm transition-micro'>
+                    </Link>
+                    <Link
+                      to='/help-support'
+                      onClick={() => setIsUserDropdownOpen(false)}
+                      className='w-full flex items-center space-x-2 px-2 py-2 text-sm text-text-primary hover:bg-muted rounded-sm transition-micro'
+                    >
                       <Icon name='HelpCircle' size={16} />
                       <span>Help & Support</span>
-                    </button>
+                    </Link>
                     <div className='border-t border-border my-1'></div>
                     <button
                       onClick={handleLogout}

@@ -521,7 +521,14 @@ const ProjectManagement = () => {
               </div>
             </div>
             {/* Render Active Tab Content */}
-            <Suspense fallback={<div>Loading tab...</div>}>
+            <Suspense fallback={
+              <div className="flex flex-col items-center justify-center space-y-4 py-8">
+                <Icon name='Loader2' size={32} className='animate-spin text-primary' />
+                <div className="text-lg text-muted-foreground">
+                  Loading tab...
+                </div>
+              </div>
+            }>
               {ActiveComponent && <ActiveComponent project={project} onSwitchTab={setActiveTab} />}
             </Suspense>
           </div>

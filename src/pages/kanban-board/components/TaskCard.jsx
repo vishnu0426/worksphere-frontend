@@ -14,7 +14,17 @@ const TaskCard = ({ card, onClick, members, canDrag = true }) => {
   });
 
   const getAssignedMembers = () => {
-    return card.assignedTo?.map(memberId => 
+    // Handle both new assignments format and legacy assignedTo format
+    if (card.assignments && Array.isArray(card.assignments)) {
+      return card.assignments.map(assignment => {
+        // Find member by user_id from assignment
+        const member = members.find(member => member.id === assignment.user_id);
+        return member;
+      }).filter(Boolean);
+    }
+
+    // Fallback to legacy assignedTo format
+    return card.assignedTo?.map(memberId =>
       members.find(member => member.id === memberId)
     ).filter(Boolean) || [];
   };
@@ -139,18 +149,10 @@ const TaskCard = ({ card, onClick, members, canDrag = true }) => {
             {assignedMembers.slice(0, 3).map((member) => (
               <div
                 key={member.id}
-                className="w-6 h-6 rounded-full border-2 border-card bg-primary flex items-center justify-center text-xs font-medium text-primary-foreground"
+                className="w-6 h-6 rounded-full border-2 border-card bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xs font-medium text-white"
                 title={member.name}
               >
-                {member.avatar ? (
-                  <Image
-                    src={member.avatar}
-                    alt={member.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  member.name.split(' ').map(n => n[0]).join('').toUpperCase()
-                )}
+                {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
               </div>
             ))}
             {assignedMembers.length > 3 && (

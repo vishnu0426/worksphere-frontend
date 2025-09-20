@@ -98,7 +98,8 @@ const Button = React.forwardRef(
           size={calculatedIconSize}
           className={cn(
             children && iconPosition === 'left' && 'mr-2',
-            children && iconPosition === 'right' && 'ml-2'
+            children && iconPosition === 'right' && 'ml-2',
+            iconName === 'Loader2' && 'animate-spin'
           )}
         />
       );

@@ -416,7 +416,7 @@ const AIProjectCreationWithTaskReview = ({
           disabled={!projectForm.name || isGenerating}
           iconName={isGenerating ? "Loader2" : "Sparkles"}
           className={`w-full bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white ${
-            isGenerating ? 'animate-spin' : ''
+            isGenerating ? 'animate-pulse' : ''
           }`}
         >
           {isGenerating ? 'Generating AI Project...' : 'Generate AI Project'}
